@@ -43,7 +43,6 @@ llm-stock-advisor/
 │   ├── main.py         # Streamlit web interface
 │   ├── utils.py        # yfinance data fetching
 │   └── llm_chain.py    # LangChain LLM logic
-├── data/               # (Optional) For logs, saved results
-├── .env                # API key file
+├── .gitignore
 ├── requirements.txt    # Dependencies
 └── README.md           # This file
