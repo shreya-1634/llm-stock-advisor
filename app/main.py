@@ -1,31 +1,45 @@
 import streamlit as st
-import json
+import matplotlib.pyplot as plt
 from utils import fetch_recent_prices
 from llm_chain import get_llm_response
 
-st.set_page_config(page_title="LLM Stock Forecast Advisor", layout="centered")
-st.title("📈 LLM-Powered Stock Forecast Advisor")
+st.set_page_config(page_title="📈 LLM Stock Advisor", layout="centered")
 
-ticker = st.text_input("Enter Stock Ticker", value="RELIANCE.NS")
+st.title("🤖 LLM-Powered Stock Advisor")
+st.markdown("Enter a stock ticker (e.g., `ADANIENT.NS`, `AAPL`, `TSLA`) and let AI advise whether to **Buy, Sell, or Hold**.")
 
-sample_news = [
-    "Reliance announces major investment in green energy.",
-    "Market opens flat despite strong tech rally."
-]
+# Default input
+ticker = st.text_input("🔍 Stock Ticker", value="ADANIENT.NS")
+submitted = st.button("📊 Analyze")
 
-if st.button("Run Forecast"):
-    prices = fetch_recent_prices(ticker)
+if submitted:
+    with st.spinner("Fetching stock data..."):
+        prices = fetch_recent_prices(ticker)
 
-    if not prices:
-        st.error("⚠️ Failed to fetch stock prices.")
+    if prices is None:
+        st.warning("⚠️ Failed to fetch stock prices. Make sure the ticker is valid (e.g., `RELIANCE.NS`, `AAPL`).")
     else:
-        with st.spinner("🔮 Asking GPT..."):
-            response = get_llm_response(ticker, prices, sample_news)
+        st.success(f"✅ Retrieved last {len(prices)} days of closing prices for `{ticker}`.")
 
-        st.subheader("📊 Forecast + Recommendation")
-        try:
-            parsed = json.loads(response)
-            st.json(parsed)
-        except json.JSONDecodeError:
-            st.error("⚠️ GPT returned invalid JSON. Showing plain text:")
-            st.code(response, language="text")
+        # Show line chart
+        st.line_chart(prices)
+
+        # Collect additional inputs
+        volatility = st.selectbox("Volatility Level", ["Low", "Moderate", "High"])
+        news = st.text_area("📰 Recent News Headlines", placeholder="Example:\n- Adani to expand port investment\n- Moody's upgrades stock outlook")
+
+        # Run LLM chain
+        with st.spinner("🧠 Thinking..."):
+            response = get_llm_response(
+                symbol=ticker,
+                price_data=f"Last {len(prices)} days: {prices[-5:]} (last 5)",
+                volatility_info=volatility,
+                news_summary=news or "No major news reported."
+            )
+
+        # Display result
+        st.markdown("### 🤖 AI Advice")
+        st.code(response.strip(), language="markdown")
+
+# Footer
+st.caption("Built with ❤️ using Streamlit + LangChain + OpenAI")
