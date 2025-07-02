@@ -13,7 +13,7 @@ def fetch_recent_prices(ticker: str, days: int = 60):
             return None
 
         # Return last N days of closing prices
-        return df["Close"].tail(days).tolist()
+        return df["Close"].tail(days)
 
     except Exception as e:
         print(f"❌ Error fetching data: {e}")
