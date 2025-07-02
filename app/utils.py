@@ -1,17 +1,20 @@
-import yfinance as yf
+# app/utils.py
 
-def fetch_recent_prices(ticker="TCS.NS", days=60):
-    df = yf.download(ticker, period="6mo", interval="1d")
-    df.dropna(inplace=True)
-    return df["Close"].tail(days).values.tolist()
 import yfinance as yf
 
 def fetch_recent_prices(ticker: str, days: int = 60):
     try:
-        df = yf.download(ticker, period="6mo", interval="1d")
+        # Fetch historical data from Yahoo Finance
+        df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True)
+
+        # Check if we got any data
         if df.empty or "Close" not in df.columns:
+            print("⚠️ Empty DataFrame or missing 'Close' column")
             return None
+
+        # Return last N days of closing prices
         return df["Close"].tail(days).tolist()
+
     except Exception as e:
-        print(f"❌ Error fetching stock data: {e}")
+        print(f"❌ Error fetching data: {e}")
         return None
