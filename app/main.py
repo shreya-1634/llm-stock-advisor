@@ -1,7 +1,7 @@
 import streamlit as st
 import json
-from app.utils import fetch_recent_prices
-from app.llm_chain import get_llm_response
+from utils import fetch_recent_prices
+from llm_chain import get_llm_response
 
 st.set_page_config(page_title="LLM Stock Forecast Advisor", layout="centered")
 st.title("📈 LLM-Powered Stock Forecast Advisor")
