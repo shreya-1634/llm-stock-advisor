@@ -1,34 +1,39 @@
-import os
-from dotenv import load_dotenv
-from langchain_community.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
+# app/llm_chain.py
+
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
 
-load_dotenv()
-
+# Initialize the OpenAI LLM
 llm = ChatOpenAI(temperature=0.3, model="gpt-4")
 
-prompt = PromptTemplate.from_template("""
-You are a financial analyst. Based on recent price data and news, predict the next 10 days,
-decide whether to BUY / SELL / HOLD, and explain why.
+# Define structured prompt template
+prompt = ChatPromptTemplate.from_template(
+    """
+You are an expert financial advisor AI. Analyze the following stock information:
 
-Ticker: {ticker}
-Prices: {prices}
-News: {news}
+📈 Stock Symbol: {symbol}
+📊 Price Trend: {price_data}
+🌪️ Volatility Info: {volatility_info}
+📰 News Summary: {news_summary}
 
-Respond ONLY in this JSON format (no code blocks):
-{
-  "forecast": "...",
-  "decision": "...",
-  "explanation": "..."
-}
-""")
+Based on this combined data, should the user BUY, SELL, or HOLD this stock?
+Please provide a short, human-understandable explanation.
 
+Respond in the format:
+Decision: <Buy/Sell/Hold>
+Reason: <Explanation>
+"""
+)
+
+# Create the LLM chain
 chain = prompt | llm
 
-def get_llm_response(ticker, prices, news):
+# Function to call from Streamlit
+def get_llm_response(symbol: str, price_data: str, volatility_info: str, news_summary: str) -> str:
     return chain.invoke({
-        "ticker": ticker,
-        "prices": prices,
-        "news": news
+        "symbol": symbol,
+        "price_data": price_data,
+        "volatility_info": volatility_info,
+        "news_summary": news_summary
     })
