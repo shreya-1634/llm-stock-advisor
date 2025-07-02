@@ -3,37 +3,45 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
+from openai import OpenAIError
 
-# Initialize the OpenAI LLM
-llm = ChatOpenAI(temperature=0.3, model="gpt-4")
+# Load the model
+llm = ChatOpenAI(
+    temperature=0.3,
+    model="gpt-4"  # or "gpt-3.5-turbo" if you're on a free tier
+)
 
 # Define structured prompt template
 prompt = ChatPromptTemplate.from_template(
     """
-You are an expert financial advisor AI. Analyze the following stock information:
+You are a smart financial assistant.
 
 📈 Stock Symbol: {symbol}
 📊 Price Trend: {price_data}
 🌪️ Volatility Info: {volatility_info}
 📰 News Summary: {news_summary}
 
-Based on this combined data, should the user BUY, SELL, or HOLD this stock?
-Please provide a short, human-understandable explanation.
+Based on this combined data, should the user **Buy**, **Sell**, or **Hold** this stock?
 
-Respond in the format:
+Respond in this format:
 Decision: <Buy/Sell/Hold>
-Reason: <Explanation>
+Reason: <Short Explanation>
 """
 )
 
-# Create the LLM chain
-chain = prompt | llm
+# Create chain
+chain = prompt | llm  # RunnableSequence
 
-# Function to call from Streamlit
 def get_llm_response(symbol: str, price_data: str, volatility_info: str, news_summary: str) -> str:
-    return chain.invoke({
-        "symbol": symbol,
-        "price_data": price_data,
-        "volatility_info": volatility_info,
-        "news_summary": news_summary
-    })
+    """Safely run the LLM chain and return prediction or error message."""
+    try:
+        return chain.invoke({
+            "symbol": symbol,
+            "price_data": price_data,
+            "volatility_info": volatility_info,
+            "news_summary": news_summary
+        })
+    except OpenAIError as e:
+        return "⚠️ OpenAI Authentication Error: Please check your API key in Streamlit secrets."
+    except Exception as e:
+        return f"❌ Unexpected error from LLM: {str(e)}"
