@@ -1,0 +1,11 @@
+# Ignore Python cache and virtual env
+__pycache__/
+*.pyc
+venv/
+
+# Ignore system files
+.DS_Store
+
+# Ignore dotenv and secrets
+.env
+*.env
