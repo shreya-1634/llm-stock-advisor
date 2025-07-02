@@ -1,11 +1,24 @@
-# Ignore Python cache and virtual env
+# Ignore Python compiled files
 __pycache__/
-*.pyc
-venv/
+*.py[cod]
 
-# Ignore system files
+# Ignore virtual environments
+venv/
+env/
+.venv/
+
+# Ignore macOS system files
 .DS_Store
 
 # Ignore dotenv and secrets
 .env
 *.env
+
+# Ignore Streamlit secrets (for local dev)
+.streamlit/secrets.toml
+
+# VS Code settings (optional)
+.vscode/
+
+# Jupyter notebook checkpoints (if using notebooks)
+.ipynb_checkpoints/
