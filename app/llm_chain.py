@@ -1,40 +1,34 @@
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableSequence
-from openai import OpenAIError
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+import streamlit as st
 
-llm = ChatOpenAI(temperature=0.3, model="gpt-4")
+llm = ChatOpenAI(
+    temperature=0.3,
+    model="gpt-4",
+    api_key=st.secrets["OPENAI_API_KEY"]
+)
 
-prompt = ChatPromptTemplate.from_template("""
-You are a smart financial assistant.
+template = """
+You are a financial advisor bot. Given the following:
 
-📈 Stock Symbol: {symbol}
-📊 Price Trend: {price_data}
-📉 Volatility: {volatility_info}
-📰 News Summary: {news_summary}
+Stock: {symbol}
+Recent Prices: {price_data}
+Volatility Index: {volatility_info}
+News Summary: {news_summary}
 
-Analyze the data and provide:
-1. Predicted Prices for Next 5 Days
-2. Buy/Sell/Hold Recommendation
-3. Reason
+Analyze the current market for this stock.
+Should the user BUY, SELL, or HOLD? Justify in plain language.
+"""
 
-Respond in this format:
-Predicted Prices: [...]
-Decision: ...
-Reason: ...
-""")
+prompt = PromptTemplate.from_template(template)
 
-chain = prompt | llm
+chain = LLMChain(llm=llm, prompt=prompt)
 
-def get_llm_response(symbol: str, price_data: str, volatility_info: str, news_summary: str) -> str:
-    try:
-        return chain.invoke({
-            "symbol": symbol,
-            "price_data": price_data,
-            "volatility_info": volatility_info,
-            "news_summary": news_summary
-        })
-    except OpenAIError:
-        return "⚠️ OpenAI API key issue. Please check your API key in `.streamlit/secrets.toml`."
-    except Exception as e:
-        return f"❌ LLM Error: {str(e)}"
+def get_llm_response(symbol, price_data, volatility_info, news_summary):
+    return chain.invoke({
+        "symbol": symbol,
+        "price_data": price_data,
+        "volatility_info": volatility_info,
+        "news_summary": news_summary
+    })
