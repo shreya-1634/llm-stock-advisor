@@ -1,45 +1,36 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-from utils import fetch_recent_prices
+import plotly.graph_objects as go
+from utils import fetch_recent_prices, fetch_news_headlines
 from llm_chain import get_llm_response
 
 st.set_page_config(page_title="📈 LLM Stock Advisor", layout="centered")
-
 st.title("🤖 LLM-Powered Stock Advisor")
-st.markdown("Enter a stock ticker (e.g., `ADANIENT.NS`, `AAPL`, `TSLA`) and let AI advise whether to **Buy, Sell, or Hold**.")
+st.markdown("Enter a stock ticker (e.g., `ADANIENT.NS`, `AAPL`, `TSLA`) and let AI analyze trends and news to suggest **Buy, Sell, or Hold**.")
 
-# Default input
-ticker = st.text_input("🔍 Stock Ticker", value="ADANIENT.NS")
-submitted = st.button("📊 Analyze")
-
-if submitted:
-    with st.spinner("Fetching stock data..."):
-        prices = fetch_recent_prices(ticker)
+ticker = st.text_input("🔍 Stock Ticker", value="AAPL")
+if st.button("📊 Analyze"):
+    prices = fetch_recent_prices(ticker)
 
     if prices is None:
-        st.warning("⚠️ Failed to fetch stock prices. Make sure the ticker is valid (e.g., `RELIANCE.NS`, `AAPL`).")
+        st.warning("⚠️ Failed to fetch stock prices. Please check the ticker symbol.")
     else:
-        st.success(f"✅ Retrieved last {len(prices)} days of closing prices for `{ticker}`.")
+        st.success(f"✅ Retrieved {len(prices)} prices.")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=prices, mode='lines', name=ticker))
+        fig.update_layout(title=f"{ticker} Closing Prices", xaxis_title="Days", yaxis_title="Price", hovermode="x")
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Show line chart
-        st.line_chart(prices)
+        news = fetch_news_headlines(ticker, st.secrets["NEWS_API_KEY"])
+        st.markdown("#### 📰 News Headlines")
+        st.text(news)
 
-        # Collect additional inputs
         volatility = st.selectbox("Volatility Level", ["Low", "Moderate", "High"])
-        news = st.text_area("📰 Recent News Headlines", placeholder="Example:\n- Adani to expand port investment\n- Moody's upgrades stock outlook")
-
-        # Run LLM chain
         with st.spinner("🧠 Thinking..."):
             response = get_llm_response(
                 symbol=ticker,
-                price_data=f"Last {len(prices)} days: {prices[-5:]} (last 5)",
+                price_data=f"Recent closing prices: {prices[-5:]}",
                 volatility_info=volatility,
-                news_summary=news or "No major news reported."
+                news_summary=news
             )
-
-        # Display result
         st.markdown("### 🤖 AI Advice")
-        st.code(response.strip(), language="markdown")
-
-# Footer
-st.caption("Built with ❤️ using Streamlit + LangChain + OpenAI")
+        st.code(response, language="markdown")
