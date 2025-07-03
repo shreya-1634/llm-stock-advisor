@@ -19,7 +19,12 @@ if st.button("📊 Analyze"):
         st.success(f"✅ Loaded {len(prices)} daily prices.")
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=prices, mode='lines', name=ticker))
-        fig.update_layout(title=f"{ticker} Historical Prices", xaxis_title="Days", yaxis_title="Price", hovermode="x")
+        fig.update_layout(
+            title=f"{ticker} Historical Prices",
+            xaxis_title="Days",
+            yaxis_title="Price",
+            hovermode="x"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         with st.spinner("Fetching news from web..."):
