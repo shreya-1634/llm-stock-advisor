@@ -10,14 +10,18 @@ You are a smart financial assistant.
 
 📈 Stock Symbol: {symbol}
 📊 Price Trend: {price_data}
-🌪️ Volatility Info: {volatility_info}
+📉 Volatility: {volatility_info}
 📰 News Summary: {news_summary}
 
-Based on this combined data, should the user **Buy**, **Sell**, or **Hold** this stock?
+Analyze the data and provide:
+1. Predicted Prices for Next 5 Days
+2. Buy/Sell/Hold Recommendation
+3. Reason
 
 Respond in this format:
-Decision: <Buy/Sell/Hold>
-Reason: <Short Explanation>
+Predicted Prices: [...]
+Decision: ...
+Reason: ...
 """)
 
 chain = prompt | llm
@@ -31,6 +35,6 @@ def get_llm_response(symbol: str, price_data: str, volatility_info: str, news_su
             "news_summary": news_summary
         })
     except OpenAIError:
-        return "⚠️ OpenAI Authentication Error: Please check your API key in Streamlit secrets."
+        return "⚠️ OpenAI API key issue. Please check your API key in `.streamlit/secrets.toml`."
     except Exception as e:
-        return f"❌ Unexpected LLM error: {str(e)}"
+        return f"❌ LLM Error: {str(e)}"
