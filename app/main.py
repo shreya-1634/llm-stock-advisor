@@ -1,7 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
-from utils import fetch_all_prices, fetch_news_with_llm, calculate_volatility
-from llm_chain import get_llm_response
+from app.utils import fetch_all_prices, fetch_news_with_llm, calculate_volatility
+from app.llm_chain import get_llm_response
 
 st.set_page_config(page_title="📈 LLM Stock Advisor", layout="centered")
 st.title("🤖 LLM-Powered Stock Advisor")
