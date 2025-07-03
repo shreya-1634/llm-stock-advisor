@@ -15,15 +15,17 @@ if st.button("📊 Analyze"):
     if prices is None or prices.empty:
         st.warning("⚠️ Could not retrieve stock data. Check the ticker symbol.")
     else:
-        st.success(f"✅ Retrieved {len(prices)} price records.")
+        st.success(f"✅ Loaded {len(prices)} daily prices.")
 
-        # Display sample data
+        # Show sample prices
         st.write("📊 Sample closing prices:", prices.tail(5))
 
-        # ✅ Safe plotting
+        # ✅ Convert to list for plotting
+        price_list = prices.tolist() if hasattr(prices, "tolist") else list(prices)
+
         try:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(y=prices, mode='lines', name=ticker))
+            fig.add_trace(go.Scatter(y=price_list, mode='lines', name=ticker))
             fig.update_layout(
                 title=f"{ticker} Historical Closing Prices",
                 xaxis_title="Days",
@@ -34,27 +36,31 @@ if st.button("📊 Analyze"):
         except Exception as e:
             st.error(f"❌ Plotting error: {e}")
 
-        # 📰 News via LLM
+        # 📰 Fetch News from Web
         with st.spinner("🌐 Fetching news..."):
             news = fetch_news_with_llm(ticker)
 
         st.subheader("📰 News Summary")
-        st.write(news)
+        for para in news.split("\n\n"):
+            st.markdown(f"- {para.strip()}")
 
-        # 📉 Volatility
+        # 📉 Volatility Calculation
         with st.spinner("📉 Calculating volatility..."):
             vol_series = calculate_volatility(prices)
-            latest_vol = round(vol_series.iloc[-1], 5) if not vol_series.empty else "Unavailable"
 
         st.subheader("📉 Volatility Index")
-        st.write(f"Latest Volatility: {latest_vol}")
+        if vol_series is not None and not vol_series.empty:
+            latest_vol = round(vol_series.iloc[-1], 5)
+            st.write(f"Latest Volatility: Ticker {ticker.upper()}, {latest_vol}")
+        else:
+            st.warning("⚠️ Volatility could not be calculated.")
 
-        # 🤖 AI Response
+        # 🤖 AI-Based Analysis
         with st.spinner("🧠 Analyzing with LLM..."):
             response = get_llm_response(
                 symbol=ticker,
-                price_data=str(prices.tail(30).tolist()),
-                volatility_info=f"{latest_vol}",
+                price_data=str(price_list[-30:]),  # send last 30 values
+                volatility_info=str(latest_vol if vol_series is not None else "N/A"),
                 news_summary=news
             )
 
