@@ -16,8 +16,8 @@ def fetch_news_with_llm(ticker: str):
     query = ticker.replace(".NS", "").replace(".BO", "").upper()
 
     url = (
-        f"https://newsapi.org/v2/everything?q={query}"
-        f"&language=en&sortBy=publishedAt&pageSize=5&apiKey={api_key}"
+    f"https://newsapi.org/v2/everything?q={query}"
+    f"&language=en&sortBy=publishedAt&pageSize=5&apiKey={api_key}"
     )
 
     try:
