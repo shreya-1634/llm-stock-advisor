@@ -1,24 +1,30 @@
-# Ignore Python compiled files
+# ✅ Python cache files
 __pycache__/
 *.py[cod]
+*.so
 
-# Ignore virtual environments
+# ✅ Virtual environment
 venv/
 env/
 .venv/
 
-# Ignore macOS system files
-.DS_Store
-
-# Ignore dotenv and secrets
-.env
-*.env
-
-# Ignore Streamlit secrets (for local dev)
+# ✅ Streamlit secrets (NEVER push API keys!)
 .streamlit/secrets.toml
 
-# VS Code settings (optional)
+# ✅ Jupyter & notebook checkpoints
+.ipynb_checkpoints/
+
+# ✅ System files
+.DS_Store
+Thumbs.db
+
+# ✅ Logs and temp
+*.log
+*.tmp
+
+# ✅ VSCode settings (optional)
 .vscode/
 
-# Jupyter notebook checkpoints (if using notebooks)
-.ipynb_checkpoints/
+# ✅ OS-specific (Mac/Linux/Windows)
+*.swp
+*~
