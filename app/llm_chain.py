@@ -16,17 +16,19 @@ You are a financial advisor bot. Based on:
 - Recent Prices: {price_data}
 - Volatility Index: {volatility_info}
 - News Summary: {news_summary}
+- Future Predictions: {future_predictions}
 
-Give a clear, concise investment recommendation (BUY, SELL, or HOLD) with justification.
+Give a clear investment recommendation (BUY, SELL, or HOLD) with reasoning.
 """
 
 prompt = PromptTemplate.from_template(template)
 chain = LLMChain(llm=llm, prompt=prompt)
 
-def get_llm_response(symbol, price_data, volatility_info, news_summary):
+def get_llm_response(symbol, price_data, volatility_info, news_summary, future_predictions):
     return chain.invoke({
         "symbol": symbol,
         "price_data": price_data,
         "volatility_info": volatility_info,
-        "news_summary": news_summary
+        "news_summary": news_summary,
+        "future_predictions": future_predictions
     })
