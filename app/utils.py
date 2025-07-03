@@ -33,7 +33,7 @@ def fetch_news_with_llm(ticker: str):
             title = article["title"]
             source = article["source"]["name"]
             link = article["url"]
-            news_summary += f"- [{title}]({link}) ({source})\n"
+            news_summary += f"- [{title}]({link}) ({source})\\n"
 
         return news_summary.strip()
 
