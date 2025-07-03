@@ -10,19 +10,17 @@ llm = ChatOpenAI(
 )
 
 template = """
-You are a financial advisor bot. Given the following:
+You are a financial advisor bot. Based on:
 
-Stock: {symbol}
-Recent Prices: {price_data}
-Volatility Index: {volatility_info}
-News Summary: {news_summary}
+- Stock Symbol: {symbol}
+- Recent Prices: {price_data}
+- Volatility Index: {volatility_info}
+- News Summary: {news_summary}
 
-Analyze the current market for this stock.
-Should the user BUY, SELL, or HOLD? Justify in plain language.
+Give a clear, concise investment recommendation (BUY, SELL, or HOLD) with justification.
 """
 
 prompt = PromptTemplate.from_template(template)
-
 chain = LLMChain(llm=llm, prompt=prompt)
 
 def get_llm_response(symbol, price_data, volatility_info, news_summary):
