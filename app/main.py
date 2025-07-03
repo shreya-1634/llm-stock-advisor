@@ -11,6 +11,7 @@ ticker = st.text_input("🔍 Enter stock ticker", value="AAPL")
 if st.button("📊 Analyze"):
     with st.spinner("Fetching data..."):
         prices = fetch_all_prices(ticker)
+        st.write("📊 Sample Prices:", prices.tail(5))
 
     if prices is None:
         st.warning("⚠️ Failed to fetch stock prices.")
