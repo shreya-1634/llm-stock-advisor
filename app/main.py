@@ -16,27 +16,52 @@ if st.button("📊 Analyze"):
         st.warning("⚠️ Could not retrieve stock data. Check the ticker symbol.")
     else:
         st.success(f"✅ Loaded {len(prices)} daily prices.")
-
-        # Show sample prices
         st.write("📊 Sample closing prices:", prices.tail(5))
 
-        # ✅ Convert to list for plotting
-        price_list = prices.tolist() if hasattr(prices, "tolist") else list(prices)
+        # ✅ Prepare data for chart
+        prices.index = prices.index.astype("datetime64[ns]")  # ensure datetime x-axis
+        price_df = prices.reset_index()
+        price_df.columns = ["Date", "Close"]
 
+        # 📈 Interactive Google-Finance-style chart
         try:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(y=price_list, mode='lines', name=ticker))
+
+            fig.add_trace(go.Scatter(
+                x=price_df["Date"],
+                y=price_df["Close"],
+                mode='lines',
+                name=ticker.upper(),
+                line=dict(color='deepskyblue')
+            ))
+
             fig.update_layout(
-                title=f"{ticker} Historical Closing Prices",
-                xaxis_title="Days",
+                title=f"{ticker.upper()} Historical Stock Prices",
+                xaxis_title="Date",
                 yaxis_title="Price",
-                hovermode="x"
+                hovermode="x unified",
+                xaxis=dict(
+                    rangeselector=dict(
+                        buttons=list([
+                            dict(count=1, label="1D", step="day", stepmode="backward"),
+                            dict(count=7, label="1W", step="day", stepmode="backward"),
+                            dict(count=1, label="1M", step="month", stepmode="backward"),
+                            dict(count=6, label="6M", step="month", stepmode="backward"),
+                            dict(step="all")
+                        ])
+                    ),
+                    rangeslider=dict(visible=True),
+                    type="date"
+                ),
+                template="plotly_dark"
             )
+
             st.plotly_chart(fig, use_container_width=True)
+
         except Exception as e:
             st.error(f"❌ Plotting error: {e}")
 
-        # 📰 Fetch News from Web
+        # 📰 News
         with st.spinner("🌐 Fetching news..."):
             news = fetch_news_with_llm(ticker)
 
@@ -44,7 +69,7 @@ if st.button("📊 Analyze"):
         for para in news.split("\n\n"):
             st.markdown(f"- {para.strip()}")
 
-        # 📉 Volatility Calculation
+        # 📉 Volatility
         with st.spinner("📉 Calculating volatility..."):
             vol_series = calculate_volatility(prices)
 
@@ -55,11 +80,11 @@ if st.button("📊 Analyze"):
         else:
             st.warning("⚠️ Volatility could not be calculated.")
 
-        # 🤖 AI-Based Analysis
+        # 🤖 LLM Advice
         with st.spinner("🧠 Analyzing with LLM..."):
             response = get_llm_response(
                 symbol=ticker,
-                price_data=str(price_list[-30:]),  # send last 30 values
+                price_data=str(price_df["Close"].tail(30).tolist()),
                 volatility_info=str(latest_vol if vol_series is not None else "N/A"),
                 news_summary=news
             )
