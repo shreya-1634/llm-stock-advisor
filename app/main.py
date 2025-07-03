@@ -9,43 +9,54 @@ st.title("🤖 LLM-Powered Stock Advisor")
 ticker = st.text_input("🔍 Enter stock ticker", value="AAPL")
 
 if st.button("📊 Analyze"):
-    with st.spinner("Fetching data..."):
+    with st.spinner("📥 Fetching stock price history..."):
         prices = fetch_all_prices(ticker)
-        st.write("📊 Sample Prices:", prices.tail(5))
 
-    if prices is None:
-        st.warning("⚠️ Failed to fetch stock prices.")
+    if prices is None or prices.empty:
+        st.warning("⚠️ Could not retrieve stock data. Check the ticker symbol.")
     else:
-        st.success(f"✅ Loaded {len(prices)} daily prices.")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=prices, mode='lines', name=ticker))
-        fig.update_layout(
-            title=f"{ticker} Historical Prices",
-            xaxis_title="Days",
-            yaxis_title="Price",
-            hovermode="x"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        st.success(f"✅ Retrieved {len(prices)} price records.")
 
-        with st.spinner("Fetching news from web..."):
+        # Display sample data
+        st.write("📊 Sample closing prices:", prices.tail(5))
+
+        # ✅ Safe plotting
+        try:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(y=prices, mode='lines', name=ticker))
+            fig.update_layout(
+                title=f"{ticker} Historical Closing Prices",
+                xaxis_title="Days",
+                yaxis_title="Price",
+                hovermode="x"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"❌ Plotting error: {e}")
+
+        # 📰 News via LLM
+        with st.spinner("🌐 Fetching news..."):
             news = fetch_news_with_llm(ticker)
 
         st.subheader("📰 News Summary")
         st.write(news)
 
-        with st.spinner("Calculating volatility..."):
+        # 📉 Volatility
+        with st.spinner("📉 Calculating volatility..."):
             vol_series = calculate_volatility(prices)
-            latest_vol = round(vol_series.iloc[-1], 4) if not vol_series.empty else "Unavailable"
+            latest_vol = round(vol_series.iloc[-1], 5) if not vol_series.empty else "Unavailable"
 
         st.subheader("📉 Volatility Index")
         st.write(f"Latest Volatility: {latest_vol}")
 
-        with st.spinner("🧠 Getting AI analysis..."):
+        # 🤖 AI Response
+        with st.spinner("🧠 Analyzing with LLM..."):
             response = get_llm_response(
                 symbol=ticker,
                 price_data=str(prices.tail(30).tolist()),
                 volatility_info=f"{latest_vol}",
                 news_summary=news
             )
-        st.subheader("🤖 AI Advice")
+
+        st.subheader("🧠 AI Advice")
         st.markdown(response)
