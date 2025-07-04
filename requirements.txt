@@ -1,9 +1,9 @@
-streamlit
-plotly
-pandas
-yfinance
-requests
+streamlit>=1.26.0
+pandas>=2.0
+plotly>=5.0
+yfinance>=0.2
+requests>=2.31
+scikit-learn>=1.4
 langchain>=0.1.17
-langchain-openai
-#tensorflow==2.13.0
-scikit-learn
+langchain-openai>=0.0.8
+openai>=1.11.0
