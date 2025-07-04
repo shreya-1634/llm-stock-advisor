@@ -45,4 +45,5 @@ llm-stock-advisor/
 │   └── llm_chain.py    # LangChain LLM logic
 ├── .gitignore
 ├── requirements.txt    # Dependencies
+├── runtime.txt
 └── README.md           # This file
