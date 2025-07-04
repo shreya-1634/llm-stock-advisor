@@ -38,17 +38,23 @@ def calculate_volatility(df: pd.DataFrame):
     volatility = np.std(returns) * np.sqrt(252)  # annualized volatility
     return volatility
 
-def predict_future_prices(df: pd.DataFrame, days_ahead: int = 7):
+def predict_future_prices(df, days_ahead=7):
     from sklearn.linear_model import LinearRegression
     import numpy as np
 
-    df = df[-60:].copy()
-    df["Day"] = np.arange(len(df))
-    model = LinearRegression()
-    model.fit(df[["Day"]], df["Close"])
+    df = df.reset_index()
+    df["timestamp"] = df["Date"].map(pd.Timestamp.timestamp)
 
-    future_days = np.arange(len(df), len(df) + days_ahead)
-    predicted = model.predict(future_days.reshape(-1, 1))
+    X = df["timestamp"].values.reshape(-1, 1)
+    y = df["Close"].values
 
-    future_dates = pd.date_range(start=df.index[-1], periods=days_ahead + 1, closed="right")
-    return pd.Series(predicted, index=future_dates)
+    model = LinearRegression().fit(X, y)
+
+    last_timestamp = df["timestamp"].iloc[-1]
+    future_timestamps = np.array([last_timestamp + i * 86400 for i in range(1, days_ahead + 1)])
+    future_prices = model.predict(future_timestamps.reshape(-1, 1))
+
+    # ✅ FIXED HERE
+    future_dates = pd.date_range(start=df["Date"].iloc[-1] + pd.Timedelta(days=1), periods=days_ahead)
+
+    return pd.Series(future_prices, index=future_dates)
