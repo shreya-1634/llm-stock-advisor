@@ -5,5 +5,5 @@ yfinance
 requests
 langchain>=0.1.17
 langchain-openai
-tensorflow
+tensorflow-cpu
 scikit-learn
