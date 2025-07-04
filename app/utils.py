@@ -57,4 +57,4 @@ def predict_future_prices(df, days_ahead=7):
     # ✅ FIXED HERE
     future_dates = pd.date_range(start=df["Date"].iloc[-1] + pd.Timedelta(days=1), periods=days_ahead)
 
-    return pd.Series(future_prices, index=future_dates)
+    return pd.Series(future_prices.flatten(), index=future_dates)
