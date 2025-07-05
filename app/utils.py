@@ -34,10 +34,13 @@ def fetch_news_with_links(ticker: str):
 
 def calculate_volatility(prices):
     try:
+        if prices is None or prices.empty:
+            return None
         returns = prices.pct_change().dropna()
-        return returns.std() * 100
+        volatility = returns.std() * 100  # percent
+        return volatility
     except Exception as e:
-        print(f"Volatility calculation failed: {e}")
+        print(f"Error calculating volatility: {e}")
         return None
 
 def predict_future_prices(prices, days_ahead=7):
