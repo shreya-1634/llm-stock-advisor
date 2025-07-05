@@ -57,10 +57,15 @@ if prices is not None and not prices.empty:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # 📊 Volatility
-    volatility = calculate_volatility(prices)
-    st.subheader("📈 Market Volatility")
+# 📊 Volatility
+st.subheader("📈 Market Volatility")
+volatility = calculate_volatility(prices)
+
+if isinstance(volatility, (int, float)):
     st.write(f"Standard deviation of daily returns: **{volatility:.2f}%**")
+else:
+    st.warning("Could not calculate volatility.")
+
 
     # 📰 Fetch and show news
     st.subheader("🗞️ Recent News")
