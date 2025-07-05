@@ -1,15 +1,15 @@
 import sys
 import os
-sys.path.append(os.path.dirname(__file__))
-import streamlit as st
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 from utils import (
     fetch_all_prices,
     fetch_news_with_links,
     calculate_volatility,
     predict_future_prices,
-    generate_ai_advice
 )
-from llm_chain import generate_ai_advice
+from llm_chain import get_llm_response
+
 import plotly.graph_objects as go
 import datetime
 
