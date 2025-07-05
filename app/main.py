@@ -64,11 +64,8 @@ volatility = calculate_volatility(prices)
 
 if isinstance(volatility, (int, float)):
     st.write(f"Standard deviation of daily returns: **{volatility:.2f}%**")
-elif volatility is None:
-    st.warning("⚠️ Volatility could not be calculated due to missing price data.")
 else:
-    st.warning("⚠️ Unexpected data format for volatility.")
-
+    st.warning("⚠️ Could not calculate volatility.")
 
     # 📰 Fetch and show news
     st.subheader("🗞️ Recent News")
