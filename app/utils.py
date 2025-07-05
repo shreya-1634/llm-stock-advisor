@@ -55,3 +55,16 @@ def predict_future_prices(prices, days_ahead=7):
     except Exception as e:
         print(f"Prediction error: {e}")
         return None
+
+def ai_decision_suggestion(news_summary: str, volatility: float, future_prices: list) -> str:
+    if not future_prices:
+        return "Insufficient data for prediction."
+
+    trend = future_prices[-1] - future_prices[0]
+    if "crash" in news_summary.lower() or trend < -2 or volatility > 5:
+        return "❌ Suggestion: SELL"
+    elif "gain" in news_summary.lower() or trend > 2:
+        return "✅ Suggestion: BUY"
+    else:
+        return "➖ Suggestion: HOLD"
+
