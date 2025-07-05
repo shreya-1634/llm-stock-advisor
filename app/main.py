@@ -32,7 +32,7 @@ if prices is None:
     st.stop()
 
 # Prepare DataFrame
-df = prices.to_frame().rename(columns={"Close": "Price"})
+df = prices.rename(columns={"Close": "Price"})
 df["Date"] = df.index
 
 # Draw Plotly chart (Google Finance-style)
