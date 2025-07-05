@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import plotly.graph_objects as go
-from app.utils import (
+from utils import (
     fetch_all_prices,
     fetch_news_with_links,
     calculate_volatility,
