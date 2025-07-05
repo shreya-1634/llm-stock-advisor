@@ -1,34 +1,32 @@
-from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+import os
+import streamlit as st
+
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
 llm = ChatOpenAI(temperature=0.3, model="gpt-4")
 
 template = """
-You are a financial advisor AI. Analyze the following:
+Given the stock symbol {symbol}, current price data, market volatility of {volatility:.2f}%, and recent news headlines:
+{news}
 
-Stock: {symbol}
-Recent Closing Prices: {prices}
-News Headlines: {news_summary}
-Volatility Index: {volatility}
-
-Based on the price trend, news sentiment, and market volatility, suggest whether to BUY, HOLD, or SELL this stock.
-Give a brief reason for your recommendation.
-
-AI Decision:
+What is your analysis of this stock's trend?
+Should the user BUY, SELL, or HOLD? Explain briefly.
 """
 
 prompt = PromptTemplate(
-    input_variables=["symbol", "prices", "news_summary", "volatility"],
+    input_variables=["symbol", "volatility", "news"],
     template=template
 )
 
 chain = LLMChain(llm=llm, prompt=prompt)
 
-def get_llm_response(symbol, prices, news_summary, volatility):
-    return chain.invoke({
+def get_llm_response(symbol, volatility, news):
+    news_text = "\n".join([f"- {title}" for title, _ in news])
+    return chain.run({
         "symbol": symbol,
-        "prices": prices,
-        "news_summary": news_summary,
         "volatility": volatility,
+        "news": news_text
     })
