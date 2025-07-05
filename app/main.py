@@ -12,7 +12,6 @@ from utils import (
     fetch_news_with_links,
     calculate_volatility,
     predict_future_prices,
-    ai_decision_suggestion
 )
 
 # Load OpenAI key securely from Streamlit secrets
