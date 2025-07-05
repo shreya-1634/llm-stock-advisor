@@ -1,62 +1,73 @@
 import yfinance as yf
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
-from sklearn.linear_model import LinearRegression
 import numpy as np
-from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
+from sklearn.linear_model import LinearRegression
+from datetime import timedelta
 
-def fetch_all_prices(ticker: str):
+
+def fetch_all_prices(ticker: str) -> pd.DataFrame:
     try:
         df = yf.download(ticker, period="max", interval="1d", auto_adjust=True)
         if df.empty or "Close" not in df.columns:
-            return None
-        return df["Close"]
+            print("⚠️ Empty DataFrame or missing 'Close' column")
+            return pd.DataFrame()
+        return df[["Close"]].rename(columns={"Close": "Price"})
     except Exception as e:
-        print("⚠️ Error fetching stock data:", e)
-        return None
+        print(f"❌ Error fetching data: {e}")
+        return pd.DataFrame()
 
-def fetch_news_with_links(ticker):
+
+def fetch_news_with_links(ticker: str):
     try:
-        query = f"{ticker} stock"
+        query = f"{ticker} stock news"
         url = f"https://news.google.com/search?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
-        soup = BeautifulSoup(res.content, "html.parser")
-        articles = soup.select("article h3")
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
 
+        articles = soup.select("article h3 a")
         news = []
-        for a in articles[:5]:
-            title = a.get_text()
-            link_tag = a.find("a")
-            if link_tag and link_tag['href']:
-                url = "https://news.google.com" + link_tag['href'][1:]
-                news.append((title, url))
+
+        for article in articles[:5]:
+            headline = article.text.strip()
+            link = "https://news.google.com" + article.get("href")[1:]  # remove dot at start
+            news.append((headline, link))
+
         return news
     except Exception as e:
-        print("❌ News fetch failed:", e)
+        print(f"❌ Failed to fetch news: {e}")
         return []
 
-def calculate_volatility(prices: pd.Series):
-    returns = prices.pct_change().dropna()
-    return returns.std() * 100
 
-def predict_future_prices(prices: pd.Series, days_ahead=7):
+def calculate_volatility(df: pd.DataFrame, days: int = 30) -> float:
     try:
-        df = prices.reset_index()
-        df['timestamp'] = df['Date'].map(datetime.toordinal)
-        X = np.array(df['timestamp']).reshape(-1, 1)
-        y = np.array(df['Close'])
+        recent = df["Price"].tail(days)
+        returns = recent.pct_change().dropna()
+        volatility = np.std(returns) * np.sqrt(252)  # annualized volatility
+        return round(volatility * 100, 2)  # in percentage
+    except Exception as e:
+        print(f"❌ Error calculating volatility: {e}")
+        return 0.0
+
+
+def predict_future_prices(df: pd.DataFrame, days_ahead: int = 7) -> pd.Series:
+    try:
+        df = df.reset_index()
+        df["Date_Ordinal"] = pd.to_datetime(df["Date"]).map(pd.Timestamp.toordinal)
+
+        X = df[["Date_Ordinal"]]
+        y = df["Price"]
 
         model = LinearRegression()
         model.fit(X, y)
 
-        last_day = df['timestamp'].iloc[-1]
-        future_days = np.array([last_day + i for i in range(1, days_ahead + 1)])
-        future_preds = model.predict(future_days.reshape(-1, 1))
-        future_dates = [datetime.fromordinal(int(d)) for d in future_days]
+        last_date = df["Date"].iloc[-1]
+        future_dates = [last_date + timedelta(days=i) for i in range(1, days_ahead + 1)]
+        future_ordinals = np.array([date.toordinal() for date in future_dates]).reshape(-1, 1)
+        future_prices = model.predict(future_ordinals)
 
-        return pd.Series(future_preds, index=future_dates)
+        return pd.Series(future_prices, index=future_dates)
     except Exception as e:
-        print("❌ Prediction error:", e)
-        return None
+        print(f"❌ Error predicting future prices: {e}")
+        return pd.Series()
