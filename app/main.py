@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import plotly.graph_objects as go
 from utils import (
     fetch_all_prices,
     fetch_news_with_links,
@@ -8,91 +7,83 @@ from utils import (
     predict_future_prices,
     generate_ai_advice
 )
+from llm_chain import generate_ai_advice
+import plotly.graph_objects as go
+import datetime
 
-# Read OpenAI key securely
+# Load API key
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
 st.set_page_config(page_title="LLM Stock Advisor", layout="wide")
-st.title("📈 LLM-Powered Stock Market Advisor")
+st.title("📈 LLM Stock Advisor")
 
-ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, RELIANCE.NS):", value="AAPL")
+ticker = st.text_input("Enter stock ticker (e.g., AAPL, RELIANCE.NS):", value="AAPL")
 
 if ticker:
-    with st.spinner("Fetching stock data..."):
-        prices = fetch_all_prices(ticker)
-        df = prices  # Already a DataFrame
+    prices = fetch_all_prices(ticker)
+    if prices is not None:
+        # Prepare DataFrame
+        df = prices.to_frame(name="Price")
+        df["Date"] = df.index
 
-    if df is None or df.empty:
-        st.warning("⚠️ Failed to fetch stock prices. Please check the ticker symbol.")
-    else:
-        df.index = df.index.tz_localize(None)
-
-        # --- 📊 Chart Section ---
-        st.subheader("📊 Stock Price Chart")
+        # Plot interactive chart like Google Finance
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=df.index,
+            x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name="Price",
+            name=ticker,
             line=dict(color="royalblue")
         ))
+
         fig.update_layout(
+            title=f"{ticker} Stock Price",
             xaxis_title="Date",
-            yaxis_title="Price (USD)",
-            xaxis_rangeslider_visible=True,
-            template="plotly_white",
-            hovermode="x unified"
+            yaxis_title="Price",
+            xaxis=dict(rangeselector=dict(
+                buttons=list([
+                    dict(count=1, label="1M", step="month", stepmode="backward"),
+                    dict(count=3, label="3M", step="month", stepmode="backward"),
+                    dict(count=6, label="6M", step="month", stepmode="backward"),
+                    dict(step="all")
+                ])
+            ),
+                rangeslider=dict(visible=True),
+                type="date"
+            )
         )
+
         st.plotly_chart(fig, use_container_width=True)
 
-        # --- 📰 News Section ---
-        st.subheader("📰 Recent News Headlines")
-        with st.spinner("Fetching news..."):
-            headlines = fetch_news_with_links(ticker)
-        if headlines:
-            for item in headlines:
+        # 📉 Volatility
+        volatility = calculate_volatility(prices)
+        st.markdown(f"📊 **Market Volatility**: `{volatility:.2f}%`")
+
+        # 📰 News
+        st.subheader("📰 Recent News")
+        news = fetch_news_with_links(ticker)
+        if news:
+            for item in news:
                 st.markdown(f"- [{item['title']}]({item['url']})")
         else:
-            st.warning("⚠️ Could not fetch news at the moment.")
+            st.warning("No news found.")
 
-        # --- 📈 Volatility ---
-        st.subheader("📉 Market Volatility")
-        volatility = calculate_volatility(df["Price"])
-        st.write(f"**Volatility (Std Dev):** {volatility:.2f}")
-
-        # --- 🔮 Future Prediction ---
-        st.subheader("🔮 Future Price Prediction")
-        future = predict_future_prices(df)
+        # 🔮 Future Prices
+        future = predict_future_prices(prices)
         if future is not None:
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(
-                x=future.index,
-                y=future,
-                mode="lines+markers",
-                name="Predicted",
-                line=dict(color="green")
-            ))
-            fig2.update_layout(
-                xaxis_title="Date",
-                yaxis_title="Predicted Price (USD)",
-                template="plotly_white"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.subheader("🔮 Predicted Future Prices")
+            st.line_chart(future)
 
-        # --- 🤖 AI Advice ---
+        # 🤖 AI Suggestion
         st.subheader("🤖 AI Investment Advice")
-        with st.spinner("Analysing..."):
-            ai_opinion = generate_ai_advice(ticker, df, headlines, volatility)
-        st.info(f"💡 **AI Suggests:** `{ai_opinion}`")
+        advice = generate_ai_advice(ticker, prices, news)
+        st.markdown(f"**AI Suggestion:** `{advice}`")
 
-        # --- ✅ Permission Request ---
-        st.subheader("🔐 Automated Action")
-        st.write(f"Based on current analysis, AI suggests to **{ai_opinion}** the stock **{ticker}**.")
-
-        confirm = st.checkbox("✅ Allow AI to perform this action on my behalf")
-
-        if confirm:
-            st.success(f"✅ AI is authorized to {ai_opinion} {ticker} (simulated).")
+        # ✅ User Permission
+        if st.toggle("Allow AI to act on suggestion?"):
+            st.success(f"✅ AI has permission to: **{advice}**")
         else:
-            st.warning("⚠️ AI is not authorized to take action. Waiting for user permission.")
+            st.info("❗ AI is waiting for permission to act.")
+
+    else:
+        st.warning("⚠️ Failed to fetch stock prices. Check the ticker.")
