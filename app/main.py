@@ -1,9 +1,10 @@
 import streamlit as st
 import os
 import sys
+import pandas as pd
 import plotly.graph_objects as go
 
-# Add app directory to path for utils import
+# Add current directory to sys.path to import utils correctly
 sys.path.append(os.path.dirname(__file__))
 
 from utils import (
@@ -11,98 +12,85 @@ from utils import (
     fetch_news_with_links,
     calculate_volatility,
     predict_future_prices,
+    ai_decision_suggestion
 )
-from llm_chain import get_llm_response
 
-# Load API key from Streamlit secrets
+# Load OpenAI key securely from Streamlit secrets
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
-st.set_page_config(layout="wide", page_title="LLM Stock Advisor", page_icon="📈")
-st.title("📊 LLM-Powered Stock Advisor")
+# App Title
+st.set_page_config(page_title="📈 LLM Stock Advisor", layout="wide")
+st.title("📈 LLM-Powered Stock Advisor")
 
-# 🏷️ Stock ticker input
-ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, RELIANCE.NS)", value="AAPL")
+# Input section
+ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA, RELIANCE.NS):", value="AAPL")
 
-# 📥 Fetch stock data
+# Fetch data
 prices = fetch_all_prices(ticker)
+news_items = fetch_news_with_links(ticker)
+volatility = calculate_volatility(prices)
+future = predict_future_prices(prices)
+ai_advice = ai_decision_suggestion(news_items, prices)
 
-if prices is not None and not prices.empty:
-    # Format DataFrame for chart
-    df = prices.copy()
-    df = df.reset_index()
-    df.columns = ["Date", "Price"]
+if prices is not None:
+    df = pd.DataFrame({"Price": prices})
+    df.index.name = "Date"
+    df.reset_index(inplace=True)
 
-    # 📉 Show chart like Google Finance
+    # Chart with zoom features like Google Finance
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["Date"], y=df["Price"], mode="lines", name=ticker))
     fig.update_layout(
-        title="Stock Price Chart",
+        title=f"{ticker} Stock Price Chart",
         xaxis_title="Date",
         yaxis_title="Price",
-        xaxis_rangeslider_visible=True,
-        xaxis=dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1D", step="day", stepmode="backward"),
-                    dict(count=7, label="1W", step="day", stepmode="backward"),
-                    dict(count=1, label="1M", step="month", stepmode="backward"),
-                    dict(count=6, label="6M", step="month", stepmode="backward"),
-                    dict(count=1, label="1Y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ])
-            ),
-            rangeslider=dict(visible=True),
-            type="date"
-        )
+        xaxis=dict(rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1D", step="day", stepmode="backward"),
+                dict(count=7, label="1W", step="day", stepmode="backward"),
+                dict(count=1, label="1M", step="month", stepmode="backward"),
+                dict(count=6, label="6M", step="month", stepmode="backward"),
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(step="all")
+            ])
+        ), rangeslider=dict(visible=True), type="date")
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# 📊 Market Volatility
-st.subheader("📊 Market Volatility")
-
-volatility = calculate_volatility(prices)
-
-if isinstance(volatility, (int, float)):
-    st.write(f"Standard deviation of daily returns: **{volatility:.2f}%**")
-else:
-    st.warning("⚠️ Could not calculate volatility.")
-
-    # 📰 Fetch and show news
-    st.subheader("🗞️ Recent News")
-    news_links, summarized_news = fetch_news_with_links(ticker)
-    if summarized_news:
-        for title, link in news_links:
-            st.markdown(f"- [{title}]({link})")
+    # Show volatility
+    if volatility is not None:
+        st.subheader("📊 Market Volatility")
+        st.write(f"Standard deviation of daily returns: **{volatility:.2f}%**")
     else:
-        st.info("No relevant news found.")
+        st.warning("⚠️ Could not compute volatility.")
 
-    # 🔮 Predict future prices
-    future = predict_future_prices(prices)
+    # Show news headlines
+    st.subheader("📰 Recent News")
+    if news_items:
+        for item in news_items:
+            st.markdown(f"- [{item['title']}]({item['link']})")
+    else:
+        st.write("No news found.")
+
+    # Show AI prediction
+    st.subheader("🤖 AI Prediction")
+    st.markdown(f"**Suggested Action:** {ai_advice.upper()}")
+
+    # Show future predicted prices
     if future is not None:
         st.subheader("🔮 Predicted Future Prices")
-        st.line_chart(future)
+        future_df = pd.DataFrame(future, columns=["Predicted Price"])
+        future_df.index.name = "Date"
+        st.line_chart(future_df)
 
-    # 🤖 AI Advice with user control
-    st.subheader("🤖 AI Investment Suggestion")
-    ai_advice = get_llm_response(
-        symbol=ticker,
-        news_summary=summarized_news or "No major news reported.",
-        prices=prices
-    )
-    st.write("### Suggestion:")
-    st.markdown(ai_advice)
-
-    # 🔐 User consent for execution
-    if st.toggle("Give AI Permission to Act on Advice"):
-        if "buy" in ai_advice.lower():
-            st.success("✅ Executing BUY order... (simulated)")
-        elif "sell" in ai_advice.lower():
-            st.warning("⚠️ Executing SELL order... (simulated)")
-        elif "hold" in ai_advice.lower():
-            st.info("🕒 Holding position... (simulated)")
-        else:
-            st.error("❌ No clear action found in AI advice.")
+    # AI Permission Section
+    st.subheader("🔐 Allow AI to Take Action?")
+    ai_access = st.checkbox("I allow the AI to make the Buy/Sell/Hold decision for me.")
+    if ai_access:
+        st.success(f"✅ AI has been granted permission to act.")
+        st.write(f"Action: **{ai_advice.upper()}** will be initiated.")
     else:
-        st.info("Waiting for user permission to act.")
+        st.warning("⚠️ AI permission not granted. No action will be taken.")
+
 else:
-    st.error("⚠️ Failed to fetch stock data. Make sure the ticker is valid.")
+    st.error("❌ Failed to fetch stock prices. Please check the ticker symbol.")
