@@ -1,89 +1,55 @@
 import streamlit as st
 import plotly.graph_objects as go
-from utils import (
-    fetch_all_prices,
-    fetch_news_with_llm,
-    calculate_volatility,
-    predict_future_prices
-)
+from utils import fetch_all_prices, fetch_news_with_links, calculate_volatility, predict_future_prices
 from llm_chain import get_llm_response
 
-st.set_page_config(page_title="📈 LLM Stock Advisor", layout="wide")
+st.set_page_config(layout="wide")
+st.title("📈 LLM Stock Advisor")
 
-st.title("📊 LLM Stock Advisor")
-ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, RELIANCE.NS):", "AAPL")
+ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, RELIANCE.NS):", value="AAPL")
 
-if st.button("Analyze"):
-    with st.spinner("Fetching data..."):
-        df = fetch_all_prices(ticker)
-        news = fetch_news_with_llm(ticker)
-        volatility = calculate_volatility(df) if df is not None else None
-        future = predict_future_prices(df) if df is not None else None
+if ticker:
+    prices = fetch_all_prices(ticker)
 
-    if df is None:
-        st.error("⚠️ Failed to fetch stock prices.")
-    else:
-        # ✅ Plot Google Finance–like interactive chart
+    if prices is not None:
+        df = prices.to_frame().rename(columns={"Close": "Price"})
+
+        # Chart
         fig = go.Figure()
-
-        fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df["Close"],
-            name="Closing Price",
-            line=dict(color="blue", width=2)
-        ))
-
-        if future is not None:
-            fig.add_trace(go.Scatter(
-                x=future.index,
-                y=future.values,
-                name="Predicted Price",
-                line=dict(color="green", dash="dash")
-            ))
-
-        fig.update_layout(
-            title=f"{ticker.upper()} Stock Price Chart",
-            xaxis=dict(
-                rangeselector=dict(
-                    buttons=list([
-                        dict(count=1, label="1d", step="day", stepmode="backward"),
-                        dict(count=7, label="1w", step="day", stepmode="backward"),
-                        dict(count=1, label="1m", step="month", stepmode="backward"),
-                        dict(count=3, label="3m", step="month", stepmode="backward"),
-                        dict(count=6, label="6m", step="month", stepmode="backward"),
-                        dict(step="all")
-                    ])
-                ),
-                rangeslider=dict(visible=True),
-                type="date"
-            ),
-            yaxis_title="Price (in local currency)"
-        )
-
+        fig.add_trace(go.Scatter(x=df.index, y=df["Price"], mode="lines", name="Price"))
+        fig.update_layout(title=f"{ticker} Stock Price", xaxis_title="Date", yaxis_title="Price", xaxis_rangeslider_visible=True)
         st.plotly_chart(fig, use_container_width=True)
 
-        # ✅ Show news headlines
-        st.subheader("🗞️ Latest News Headlines")
+        # Volatility
+        volatility = calculate_volatility(prices)
+        st.metric("📉 Market Volatility", f"{volatility:.2f} %")
+
+        # News
+        news = fetch_news_with_links(ticker)
         if news:
-            st.markdown(news)
-        else:
-            st.warning("No news found.")
+            st.subheader("📰 Recent News")
+            for title, url in news:
+                st.markdown(f"- [{title}]({url})")
 
-        # ✅ Show volatility
-        st.subheader("📉 Market Volatility")
-        if volatility:
-            st.markdown(f"**Annualized Volatility:** `{volatility:.2%}`")
-        else:
-            st.warning("Unable to calculate volatility.")
+        # AI Prediction
+        future = predict_future_prices(prices)
+        if future is not None:
+            st.subheader("🔮 Future Price Prediction (Next 7 Days)")
+            st.line_chart(future)
 
-        # ✅ AI Recommendation
+        # AI Recommendation
         st.subheader("🤖 AI Advice")
-        with st.spinner("Generating advice..."):
-            prices = df["Close"].tail(30).tolist()
-            response = get_llm_response(
-                symbol=ticker,
-                prices=prices,
-                news_summary=news or "No major news available.",
-                volatility=f"{volatility:.4f}" if volatility else "Unknown"
-            )
-            st.success(response["text"])
+        with st.spinner("Analyzing..."):
+            advice = get_llm_response(ticker, volatility, news)
+            st.write(advice)
+
+        # User Permission
+        st.subheader("🔐 AI Trading Permission")
+        decision = st.radio("Allow AI to execute trade based on this advice?", ["No", "Yes"])
+        if decision == "Yes":
+            st.success(f"✅ AI is executing your trade: {advice.split()[-1].upper()} order placed!")
+        else:
+            st.info("❗AI will not perform any trading action.")
+
+    else:
+        st.error("⚠️ Failed to fetch data. Please check the ticker.")
