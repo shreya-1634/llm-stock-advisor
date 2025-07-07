@@ -1,46 +1,38 @@
-import requests
+from core.api_manager import api_manager
 from transformers import pipeline
-from datetime import datetime, timedelta
 import streamlit as st
 
-# Initialize sentiment analysis pipeline
 sentiment_analyzer = pipeline("sentiment-analysis")
 
-def fetch_news(ticker, days=7):
-    """
-    Fetch news articles related to the stock ticker
-    """
-    NEWS_API_KEY = "YOUR_NEWS_API_KEY"  # Replace with your actual key
-    from_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+def fetch_news(ticker):
+    news_client = api_manager.get_news_client()
+    if not news_client: return []
     
-    url = f"https://newsapi.org/v2/everything?q={ticker}&from={from_date}&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
-        articles = response.json().get('articles', [])
-        # Analyze sentiment for each article
-        for article in articles:
-            if article['content']:
-                sentiment = sentiment_analyzer(article['content'][:512])[0]
-                article['sentiment'] = sentiment['label']
-                article['sentiment_score'] = sentiment['score']
-        return articles
-    else:
-        st.error("Failed to fetch news")
+    try:
+        return news_client.get_everything(
+            q=ticker,
+            language='en',
+            sort_by='relevancy',
+            page_size=5
+        )['articles']
+    except Exception as e:
+        st.error(f"News fetch failed: {str(e)}")
         return []
 
-def display_news(articles):
-    """
-    Display news articles with sentiment analysis in Streamlit
-    """
-    if not articles:
-        st.warning("No recent news found for this stock")
-        return
+def analyze_with_gpt(text, ticker):
+    openai = api_manager.get_openai()
+    if not openai: return "GPT analysis unavailable"
     
-    for article in articles[:5]:  # Show top 5 articles
-        with st.expander(f"{article['title']} ({article['sentiment']} - {article['sentiment_score']:.2f})"):
-            st.write(f"**Source:** {article['source']['name']}")
-            st.write(f"**Published At:** {article['publishedAt']}")
-            st.write(article['description'])
-            if article['url']:
-                st.markdown(f"[Read more]({article['url']})", unsafe_allow_html=True)
+    try:
+        response = openai.ChatCompletion.create(
+            model=st.secrets.get("GPT_MODEL", "gpt-4-turbo-preview"),
+            messages=[{
+                "role": "user",
+                "content": f"Analyze this news about {ticker} as a financial expert:\n{text[:2000]}"
+            }],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"GPT analysis failed: {str(e)}")
+        return "Analysis error"
