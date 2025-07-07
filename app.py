@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))  # Fixes import path
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
