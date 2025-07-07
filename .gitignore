@@ -1,15 +1,10 @@
-# API keys
+*.pyc
+__pycache__/
+.env
+*.h5
+*.csv
+*.log
+.DS_Store
 .streamlit/secrets.toml
 static/config.json
-
-# Models
-models/*.h5
-
-# Environments
-venv/
-.env
-
-# System
-.DS_Store
-__pycache__/
-*.py[cod]
+models/
