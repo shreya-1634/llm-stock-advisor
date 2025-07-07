@@ -1,18 +1,15 @@
-/* Main layout */
 .stApp {
     background-color: #0e1117;
     color: #f0f2f6;
     font-family: 'Inter', sans-serif;
 }
 
-/* Sidebar */
 .stSidebar {
     background-color: #1a1d24;
     padding: 1.5rem;
     border-right: 1px solid #2d3747;
 }
 
-/* Buttons */
 .stButton>button {
     background-color: #4a8cff;
     color: white;
@@ -29,7 +26,6 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Input fields */
 .stTextInput>div>div>input,
 .stSelectbox>select {
     background-color: #1a1d24 !important;
@@ -39,7 +35,6 @@
     padding: 8px 12px !important;
 }
 
-/* Expanders */
 .stExpander {
     background-color: #1a1d24;
     border: 1px solid #2d3747;
@@ -52,7 +47,6 @@
     font-weight: 600;
 }
 
-/* Metrics */
 .stMetric {
     background-color: #1a1d24;
     border: 1px solid #2d3747;
@@ -60,13 +54,11 @@
     padding: 1rem;
 }
 
-/* Charts */
 .plotly-graph-div {
     border-radius: 8px;
     border: 1px solid #2d3747;
 }
 
-/* Responsive layout */
 @media (max-width: 768px) {
     .stSidebar {
         width: 100%;
