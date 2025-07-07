@@ -7,11 +7,12 @@ import plotly.graph_objects as go
 # Add current directory to sys.path to import utils correctly
 sys.path.append(os.path.dirname(__file__))
 
-from utils import (
+from app.utils import (
     fetch_all_prices,
     fetch_news_with_links,
     calculate_volatility,
     predict_future_prices,
+    ai_decision_suggestion   
 )
 
 # Load OpenAI key securely from Streamlit secrets
