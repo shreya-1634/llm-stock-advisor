@@ -2,7 +2,11 @@
 maxUploadSize = 1000
 enableCORS = false
 enableXsrfProtection = true
+port = 8501
 
 [browser]
 serverAddress = ""
 gatherUsageStats = false
+
+[logger]
+level = "INFO"
