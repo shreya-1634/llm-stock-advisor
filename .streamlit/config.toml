@@ -1,8 +1,8 @@
 [server]
-maxUploadSize = 1000  # Allows large model files
-enableCORS = false    # Security setting
-port = 8501           # Default port
+maxUploadSize = 1000
+enableCORS = false
+enableXsrfProtection = true
 
 [browser]
-serverAddress = ""    # Auto-detection
+serverAddress = ""
 gatherUsageStats = false
