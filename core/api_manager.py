@@ -5,11 +5,11 @@ from newsapi import NewsApiClient
 
 class APIManager:
     def __init__(self):
-        self.config = self._load_config()
+        self._load_config()
     
     def _load_config(self):
         with open("static/config.json") as f:
-            return json.load(f)
+            self.config = json.load(f)
     
     def get_news_client(self):
         try:
