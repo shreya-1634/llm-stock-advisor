@@ -1,1 +1,15 @@
-
+{
+  "API_KEYS": {
+    "NEWS_API": "USE_STREAMLIT_SECRETS",
+    "OPENAI_API": "USE_STREAMLIT_SECRETS"
+  },
+  "SETTINGS": {
+    "NEWS_DAYS_BACK": 7,
+    "GPT_MODEL": "gpt-4-turbo-preview",
+    "MAX_TOKENS": 500,
+    "TRADING": {
+      "MAX_TRADE_AMOUNT": 5000,
+      "PERMISSION_TIMEOUT": 30
+    }
+  }
+}
