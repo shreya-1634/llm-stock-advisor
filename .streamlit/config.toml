@@ -1,0 +1,35 @@
+[server]
+# File upload limit (in MB)
+maxUploadSize = 1000  # Increased from default 200MB for model files
+
+# Memory and performance
+maxMessageSize = 1000  # WebSocket message size limit (MB)
+enableWebsocketCompression = true
+
+# Security
+enableCORS = false  # Disable unless you need cross-origin requests
+enableXsrfProtection = true  # Recommended for production
+
+# Network
+port = 8501  # Default Streamlit port
+baseUrlPath = "/"  # Change if hosting under subpath
+
+[browser]
+serverAddress = ""  # Auto-detect
+serverPort = 8501  # Must match server.port
+gatherUsageStats = false  # Disable telemetry
+
+[runtime]
+# Cache configuration
+maxCacheSize = 1000  # MB for @st.cache_data
+showWarningOnDirectExecution = true  # Warn about __name__ == "__main__"
+
+[logger]
+level = "info"  # "debug" for troubleshooting
+
+[client]
+showErrorDetails = true  # Display Python tracebacks
+caching = true  # Enable st.cache
+
+[scheduler]
+heartbeatInterval = 30  # Seconds between heartbeats
