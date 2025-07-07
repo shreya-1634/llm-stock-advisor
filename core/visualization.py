@@ -7,7 +7,6 @@ logger = get_logger(__name__)
 
 def create_interactive_chart(data):
     try:
-        logger.debug("Creating interactive chart")
         fig = go.Figure(data=[go.Candlestick(
             x=data.index,
             open=data['Open'],
@@ -47,15 +46,15 @@ def create_interactive_chart(data):
             )
         )
         
-        logger.debug("Chart created successfully")
+        logger.debug("Chart generated successfully")
         return fig
+        
     except Exception as e:
-        logger.error(f"Chart creation failed: {str(e)}")
+        logger.error(f"Chart generation failed: {str(e)}")
         return go.Figure()
 
 def plot_volatility(data):
     try:
-        logger.debug("Calculating volatility")
         data['Daily_Return'] = data['Close'].pct_change()
         data['Volatility'] = data['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
         
@@ -74,8 +73,9 @@ def plot_volatility(data):
             margin=dict(l=20, r=20, t=30, b=20)
         )
         
-        logger.debug("Volatility plot created")
+        logger.debug("Volatility plot generated")
         return fig
+        
     except Exception as e:
         logger.error(f"Volatility plot failed: {str(e)}")
         return go.Figure()
