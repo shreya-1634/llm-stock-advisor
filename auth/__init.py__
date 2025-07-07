@@ -1,1 +1,3 @@
-
+# Initialize auth package
+from .auth import authenticate_user, logout_user, get_user_permissions
+from .permissions import request_permission, check_permission
