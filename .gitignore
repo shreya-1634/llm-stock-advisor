@@ -1,0 +1,22 @@
+# API keys and sensitive data
+static/config.json
+
+# Virtual environment
+venv/
+.env
+
+# Model files (large binary files)
+models/*.h5
+
+# Streamlit cache
+.streamlit/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE specific
+.vscode/
+.idea/
+.DS_Store
