@@ -58,6 +58,27 @@ def init_session():
         if key not in st.session_state:
             st.session_state[key] = val
 
+# Add this in your login_section() function
+if st.sidebar.button("Login"):
+    print(f"DEBUG - Trying to login with: {username}/{password}")  # Check console
+    
+    # Temporary test - bypass auth for debugging
+    if username == "debug" and password == "debug":
+        st.session_state.authenticated = True
+        st.session_state.username = "debug"
+        st.rerun()
+    
+    if authenticate_user(username, password):
+        print("Login successful in app.py")  # Debug
+        st.session_state.update({
+            'authenticated': True,
+            'username': username,
+            'trading_engine': TradingEngine(username)
+        })
+        st.rerun()
+    else:
+        st.error("Invalid credentials")
+
 # ==================== AUTHENTICATION ====================
 def login_section():
     with st.sidebar:
