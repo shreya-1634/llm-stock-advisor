@@ -1,41 +1,43 @@
-import bcrypt
+# auth/auth.py
 from core.config import get_logger
+import bcrypt
 
 logger = get_logger(__name__)
 
-# Hashed password database (demo purposes)
+# TEST USER DATABASE (pre-hashed passwords)
 USERS = {
     "admin": {
-        # Password: "admin123"
-        "password": b"$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGgaXNlK",
+        "password": b"$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGgaXNlK",  # admin123
         "permissions": ["view", "trade", "admin"]
     },
     "trader": {
-        # Password: "trader123"
-        "password": b"$2b$12$W6G5hUO2d1vJ1AQR.6QZeuAhfz7X3xjK7rq9V9tVYJ9dKj6YbW5mK",
+        "password": b"$2b$12$W6G5hUO2d1vJ1AQR.6QZeuAhfz7X3xjK7rq9V9tVYJ9dKj6YbW5mK",  # trader123
         "permissions": ["view", "trade"]
     }
 }
 
 def authenticate_user(username: str, password: str) -> bool:
-    """Secure authentication with bcrypt hashing"""
+    """Working authentication with debug prints"""
+    print(f"Auth attempt: {username}")  # Debug
+    
+    user = USERS.get(username.lower())  # Case-insensitive
+    if not user:
+        print(f"User {username} not found")  # Debug
+        return False
+    
+    # Verify password against stored hash
     try:
-        user = USERS.get(username)
-        if user:
-            # Verify password against hashed version
-            if bcrypt.checkpw(password.encode('utf-8'), user["password"]):
-                logger.info(f"Successful login for {username}")
-                return True
-        logger.warning(f"Failed login attempt for {username}")
-        return False
+        if bcrypt.checkpw(password.encode('utf-8'), user["password"]):
+            print("Authentication successful!")  # Debug
+            return True
     except Exception as e:
-        logger.error(f"Auth error: {str(e)}")
-        return False
+        print(f"Password check failed: {e}")  # Debug
+    
+    print("Authentication failed")  # Debug
+    return False
 
 def logout_user():
-    """Handle logout cleanup"""
-    logger.info("User logged out")
+    print("User logged out")  # Debug
 
 def check_permission(username: str, permission: str) -> bool:
-    """Check user permissions"""
-    return permission in USERS.get(username, {}).get("permissions", [])
+    return permission in USERS.get(username.lower(), {}).get("permissions", [])
