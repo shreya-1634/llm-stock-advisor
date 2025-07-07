@@ -1,6 +1,7 @@
 from .api_manager import api_manager
 from .data_fetcher import fetch_stock_data, get_current_price
-from .news_analyzer import fetch_financial_news, display_news_with_insights
-from .predictor import predict_future_prices
+from .news_analyzer import news_analyzer, display_news_with_insights
+from .predictor import predict_future_prices, LSTMPredictor
 from .trading_engine import TradingEngine
 from .visualization import create_interactive_chart, plot_volatility
+from .config import setup_logging, get_logger
