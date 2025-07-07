@@ -11,5 +11,5 @@ newsapi-python>=0.2.6
 openai>=1.0.0
 python-dotenv>=0.21.0
 requests>=2.28.1
-sentencepiece>=0.1.99  # Required for some transformer models
-protobuf>=3.20.0  # Required for TensorFlow compatibility
+sentencepiece>=0.1.99
+protobuf>=3.20.0
