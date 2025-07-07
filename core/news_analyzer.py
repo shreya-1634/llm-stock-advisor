@@ -1,12 +1,27 @@
 from core.api_manager import api_manager
-from transformers import pipeline
 import streamlit as st
+from transformers import pipeline
+import torch  # Add this import
 
-sentiment_analyzer = pipeline("sentiment-analysis")
+# Initialize sentiment analyzer with error handling
+try:
+    sentiment_analyzer = pipeline(
+        "sentiment-analysis",
+        device="cuda" if torch.cuda.is_available() else "cpu"
+    )
+except Exception as e:
+    st.error(f"Failed to initialize sentiment analyzer: {str(e)}")
+    sentiment_analyzer = None
 
 def fetch_financial_news(ticker):
+    if sentiment_analyzer is None:
+        st.warning("Sentiment analysis unavailable")
+        return []
+    
+    # Rest of your existing code...
     news_client = api_manager.get_news_client()
-    if not news_client: return []
+    if not news_client: 
+        return []
     
     try:
         news = news_client.get_everything(
@@ -17,33 +32,14 @@ def fetch_financial_news(ticker):
         
         for article in news:
             if article['content']:
-                # Sentiment analysis
-                sentiment = sentiment_analyzer(article['content'][:512])[0]
-                article['sentiment'] = sentiment['label']
-                # AI insight
-                article['ai_insight'] = generate_ai_insight(article['content'], ticker)
+                try:
+                    sentiment = sentiment_analyzer(article['content'][:512])[0]
+                    article['sentiment'] = sentiment['label']
+                    article['sentiment_score'] = sentiment['score']
+                except Exception as e:
+                    article['sentiment'] = 'ERROR'
+                    article['sentiment_score'] = 0.0
         return news
     except Exception as e:
-        st.error(f"News Error: {str(e)}")
+        st.error(f"News fetch error: {str(e)}")
         return []
-
-def generate_ai_insight(text, ticker):
-    client = api_manager.get_openai()
-    if not client: return "AI unavailable"
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4-turbo-preview",
-            messages=[{
-                "role": "system",
-                "content": "Analyze this as a financial expert:"
-            },{
-                "role": "user", 
-                "content": f"News about {ticker}: {text[:2000]}"
-            }],
-            max_tokens=200
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        st.error(f"AI Error: {str(e)}")
-        return "Analysis failed"
