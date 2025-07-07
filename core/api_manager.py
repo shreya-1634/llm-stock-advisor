@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-import openai
+from openai import OpenAI  # Updated import
 from newsapi import NewsApiClient
 
 class APIManager:
@@ -13,17 +13,14 @@ class APIManager:
     
     def get_news_client(self):
         try:
-            api_key = st.secrets.get("NEWS_API_KEY", self.config["API_KEYS"]["NEWS_API"])
-            return NewsApiClient(api_key=api_key)
+            return NewsApiClient(api_key=st.secrets["NEWS_API_KEY"])
         except Exception as e:
             st.error(f"NewsAPI Error: {str(e)}")
             return None
 
     def get_openai(self):
         try:
-            api_key = st.secrets.get("OPENAI_API_KEY", self.config["API_KEYS"]["OPENAI_API"])
-            openai.api_key = api_key
-            return openai
+            return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])  # New client initialization
         except Exception as e:
             st.error(f"OpenAI Error: {str(e)}")
             return None
