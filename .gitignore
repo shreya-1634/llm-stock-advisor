@@ -9,3 +9,4 @@ __pycache__/
 static/config.json
 models/
 logs/
+venv/
