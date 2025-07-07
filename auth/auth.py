@@ -58,3 +58,48 @@ def logout_user():
     st.session_state.clear()
 
 init_db()
+
+# auth/auth.py
+from core.config import get_logger
+
+logger = get_logger(__name__)
+
+# Simple user database (for demo purposes only)
+USERS = {
+    "admin": {
+        "password": "admin123",
+        "permissions": ["view", "trade", "admin"]
+    },
+    "trader": {
+        "password": "trader123",
+        "permissions": ["view", "trade"]
+    },
+    "viewer": {
+        "password": "viewer123",
+        "permissions": ["view"]
+    }
+}
+
+def authenticate_user(username: str, password: str) -> bool:
+    """Authenticate user with test credentials"""
+    try:
+        if username in USERS and USERS[username]["password"] == password:
+            logger.info(f"User {username} authenticated successfully")
+            return True
+        logger.warning(f"Failed login attempt for {username}")
+        return False
+    except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
+        return False
+
+def logout_user():
+    """Logout the current user"""
+    logger.info("User logged out")
+
+def check_permission(username: str, permission: str) -> bool:
+    """Check if user has specific permission"""
+    try:
+        return permission in USERS.get(username, {}).get("permissions", [])
+    except Exception as e:
+        logger.error(f"Permission check error: {str(e)}")
+        return False
