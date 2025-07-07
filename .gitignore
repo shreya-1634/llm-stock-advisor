@@ -1,22 +1,15 @@
-# API keys and sensitive data
+# API keys
+.streamlit/secrets.toml
 static/config.json
 
-# Virtual environment
+# Models
+models/*.h5
+
+# Environments
 venv/
 .env
 
-# Model files (large binary files)
-models/*.h5
-
-# Streamlit cache
-.streamlit/
-
-# Python artifacts
+# System
+.DS_Store
 __pycache__/
 *.py[cod]
-*$py.class
-
-# IDE specific
-.vscode/
-.idea/
-.DS_Store
