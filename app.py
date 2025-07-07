@@ -1,17 +1,18 @@
 import streamlit as st
 from datetime import datetime, timedelta
-import pandas as pd
+import traceback
+from core.config import setup_logging, get_logger
 from auth.auth import authenticate_user, logout_user
 from core.data_fetcher import fetch_stock_data, get_current_price
 from core.visualization import create_interactive_chart, plot_volatility
+from core.news_analyzer import news_analyzer, display_news_with_insights
 from core.predictor import predict_future_prices
 from core.trading_engine import TradingEngine
 from auth.permissions import request_permission, check_permission
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize logging
+setup_logging()
+logger = get_logger(__name__)
 
 # Page Configuration
 st.set_page_config(
@@ -21,17 +22,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 def load_css():
     try:
         with open("static/styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        logger.debug("CSS loaded successfully")
     except Exception as e:
         logger.warning(f"CSS load failed: {str(e)}")
 
-load_css()
-
-# Session State Management
 def init_session():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
@@ -39,16 +37,14 @@ def init_session():
         st.session_state.trading_engine = None
     if 'current_ticker' not in st.session_state:
         st.session_state.current_ticker = "AAPL"
+    logger.debug("Session initialized")
 
-init_session()
-
-# Authentication
 def login_section():
     st.sidebar.title("🔐 Login")
-    username = st.sidebar.text_input("Username", key="login_username")
-    password = st.sidebar.text_input("Password", type="password", key="login_password")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
     
-    if st.sidebar.button("Login", key="login_btn"):
+    if st.sidebar.button("Login"):
         try:
             if authenticate_user(username, password):
                 st.session_state.update({
@@ -56,44 +52,43 @@ def login_section():
                     'username': username,
                     'trading_engine': TradingEngine(username)
                 })
+                logger.info(f"User {username} logged in")
                 st.rerun()
             else:
+                logger.warning(f"Failed login attempt for {username}")
                 st.sidebar.error("Invalid credentials")
         except Exception as e:
-            logger.error(f"Login failed: {str(e)}")
+            logger.error(f"Login error: {str(e)}")
             st.sidebar.error("Login service unavailable")
 
 def logout_section():
-    if st.sidebar.button("Logout", key="logout_btn"):
+    if st.sidebar.button("Logout"):
         try:
+            username = st.session_state.get('username', 'unknown')
             logout_user()
             st.session_state.clear()
+            logger.info(f"User {username} logged out")
             st.rerun()
         except Exception as e:
-            logger.error(f"Logout failed: {str(e)}")
+            logger.error(f"Logout error: {str(e)}")
             st.error("Logout failed. Please try again.")
 
-# Main App Logic
 def stock_analysis_section():
     st.sidebar.title(f"👋 Welcome, {st.session_state.username}")
     logout_section()
     
-    # Stock Selection
     st.sidebar.header("Stock Selection")
     ticker = st.sidebar.text_input(
         "Ticker Symbol", 
-        value=st.session_state.current_ticker,
-        key="ticker_input"
+        value=st.session_state.current_ticker
     ).upper()
     
     date_range = st.sidebar.selectbox(
         "Date Range",
         ["1M", "3M", "6M", "YTD", "1Y", "5Y", "Max"],
-        index=2,
-        key="date_range"
+        index=2
     )
     
-    # Convert to dates
     date_map = {
         "1M": datetime.now() - timedelta(days=30),
         "3M": datetime.now() - timedelta(days=90),
@@ -104,25 +99,24 @@ def stock_analysis_section():
         "Max": datetime(1980, 1, 1)
     }
 
-    # Analysis Trigger
-    if st.sidebar.button("Analyze", type="primary", key="analyze_btn"):
+    if st.sidebar.button("Analyze", type="primary"):
         with st.spinner("🧠 Processing data with AI..."):
             try:
                 analyze_stock(ticker, date_map[date_range])
             except Exception as e:
-                logger.error(f"Analysis failed: {str(e)}")
+                logger.error(f"Analysis failed: {str(e)}\n{traceback.format_exc()}")
                 st.error("Analysis failed. Please check logs.")
 
 def analyze_stock(ticker, start_date):
-    """Core analysis workflow with error handling"""
     try:
-        # Fetch and validate data
+        logger.info(f"Starting analysis for {ticker}")
         stock_data = fetch_stock_data(ticker, start_date, datetime.now())
+        
         if stock_data.empty:
+            logger.warning(f"No data found for {ticker}")
             st.error("No data available for this ticker/date range")
             return
 
-        # Display main dashboard
         col1, col2 = st.columns([7, 3])
         
         with col1:
@@ -141,18 +135,14 @@ def analyze_stock(ticker, start_date):
             
             plot_volatility(stock_data)
 
-        # News Analysis
         st.header("📰 Latest Market News")
-        from core.news_analyzer import news_analyzer, display_news_with_insights
         news = news_analyzer.fetch_financial_news(ticker)
         display_news_with_insights(news)
 
-        # AI Predictions
         st.header("🔮 Price Forecast")
         prediction_days = st.slider(
             "Prediction Period (days)", 
-            1, 30, 7, 
-            key="pred_days"
+            1, 30, 7
         )
         
         try:
@@ -165,7 +155,6 @@ def analyze_stock(ticker, start_date):
             logger.error(f"Prediction failed: {str(e)}")
             st.error("Price prediction service unavailable")
 
-        # Trading Recommendations
         st.header("🤖 Trading Advice")
         try:
             recommendation = st.session_state.trading_engine.generate_recommendation(
@@ -185,43 +174,11 @@ def analyze_stock(ticker, start_date):
         st.error("Analysis service currently unavailable")
 
 def handle_trade_approval(ticker, recommendation):
-    """Handle trade execution workflow"""
     permission_key = request_permission(
         st.session_state.username,
         recommendation,
         ticker,
-        1  # Default quantity
+        1
     )
     
-    if st.button(f"Approve {recommendation} Order", key="trade_btn"):
-        if check_permission(permission_key):
-            try:
-                executed = st.session_state.trading_engine.execute_trade(
-                    recommendation,
-                    ticker,
-                    1
-                )
-                if executed:
-                    st.toast(f"Trade executed: {recommendation} {ticker}")
-                    st.balloons()
-                else:
-                    st.error("Trade execution failed")
-            except Exception as e:
-                logger.error(f"Trade failed: {str(e)}")
-                st.error("Trade execution service unavailable")
-        else:
-            st.error("Permission denied or expired")
-
-# App Router
-if not st.session_state.authenticated:
-    login_section()
-    st.markdown("""
-    ## Welcome to AI Stock Advisor
-    Please login to access:
-    - 📈 Real-time stock analysis
-    - 📰 AI-processed financial news
-    - 🔮 Predictive market insights
-    - 🤖 Automated trading recommendations
-    """)
-else:
-    stock_analysis_section()
+    if st.button(f"Approve {recomm
