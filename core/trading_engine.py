@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 from core.data_fetcher import get_current_price
-from core.news_analyzer import fetch_news
+from core.news_analyzer import fetch_financial_news
 import yfinance as yf
+from datetime import datetime
 
 class TradingEngine:
     def __init__(self, username):
@@ -12,10 +12,6 @@ class TradingEngine:
         self.trade_history = []
     
     def generate_recommendation(self, stock_data, news_articles=None):
-        """
-        Generate buy/hold/sell recommendation based on technical and sentiment analysis
-        """
-        # Technical indicators
         current_price = stock_data['Close'].iloc[-1]
         ma_20 = stock_data['Close'].rolling(window=20).mean().iloc[-1]
         ma_50 = stock_data['Close'].rolling(window=50).mean().iloc[-1]
@@ -30,31 +26,35 @@ class TradingEngine:
         # Sentiment analysis
         sentiment_score = 0
         if news_articles:
-            positive_news = sum(1 for article in news_articles if article['sentiment'] == 'POSITIVE')
-            negative_news = sum(1 for article in news_articles if article['sentiment'] == 'NEGATIVE')
-            sentiment_score = (positive_news - negative_news) / len(news_articles) if news_articles else 0
+            positive = sum(1 for a in news_articles if a['sentiment'] == 'POSITIVE')
+            negative = sum(1 for a in news_articles if a['sentiment'] == 'NEGATIVE')
+            sentiment_score = (positive - negative) / len(news_articles) if news_articles else 0
         
         # Generate recommendation
         recommendation = "HOLD"
         
-        # Buy signal conditions
-        if (current_price > ma_20 > ma_50 and 
-            rsi < 70 and 
-            sentiment_score > 0.2):
-            recommendation = "BUY"
+        # Buy signals
+        buy_signals = [
+            current_price > ma_20 > ma_50,
+            rsi < 70,
+            sentiment_score > 0.2
+        ]
         
-        # Sell signal conditions
-        elif (current_price < ma_20 < ma_50 and 
-              rsi > 30 and 
-              sentiment_score < -0.2):
+        # Sell signals
+        sell_signals = [
+            current_price < ma_20 < ma_50,
+            rsi > 30,
+            sentiment_score < -0.2
+        ]
+        
+        if all(buy_signals):
+            recommendation = "BUY"
+        elif all(sell_signals):
             recommendation = "SELL"
         
         return recommendation
     
     def execute_trade(self, action, ticker, quantity, price=None):
-        """
-        Execute a trade and update portfolio
-        """
         if not price:
             price = get_current_price(ticker)
         
@@ -82,7 +82,7 @@ class TradingEngine:
             else:
                 return False
         
-        # Record trade history
+        # Record trade
         self.trade_history.append({
             'timestamp': timestamp,
             'action': action,
@@ -95,9 +95,6 @@ class TradingEngine:
         return True
     
     def get_portfolio_value(self):
-        """
-        Calculate total portfolio value
-        """
         total_value = 0
         for ticker, data in self.portfolio.items():
             current_price = get_current_price(ticker)
