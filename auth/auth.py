@@ -28,51 +28,33 @@ def create_user(username, password):
         c.execute('INSERT INTO users (username, password) VALUES (?, ?)',
                  (username, hash_password(password)))
         conn.commit()
-        logger.info(f"User created: {username}")
+        logger.info(f"User {username} created")
         return True
     except sqlite3.IntegrityError:
-        logger.warning(f"User already exists: {username}")
+        logger.warning(f"User {username} already exists")
         return False
     finally:
         conn.close()
 
 def authenticate_user(username, password):
     conn = sqlite3.connect('users.db')
+    c = conn.cursor()
     try:
-        logger.debug(f"Auth attempt for {username}")
-        c = conn.cursor()
         c.execute('SELECT password FROM users WHERE username = ?', (username,))
         result = c.fetchone()
-        
-        if result:
-            if result[0] == hash_password(password):
-                logger.info(f"Successful login: {username}")
-                return True
-            logger.warning(f"Invalid password for: {username}")
-        else:
-            logger.warning(f"Unknown user: {username}")
+        if result and result[0] == hash_password(password):
+            logger.info(f"User {username} authenticated")
+            return True
+        logger.warning(f"Authentication failed for {username}")
         return False
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
-        raise
+        return False
     finally:
         conn.close()
 
 def logout_user():
-    logger.info(f"User logged out")
+    logger.info(f"User {st.session_state.get('username')} logged out")
     st.session_state.clear()
-
-def get_user_permissions(username):
-    conn = sqlite3.connect('users.db')
-    try:
-        c = conn.cursor()
-        c.execute('SELECT permissions FROM users WHERE username = ?', (username,))
-        result = c.fetchone()
-        return json.loads(result[0]) if result and result[0] else {}
-    except Exception as e:
-        logger.error(f"Permission fetch failed: {str(e)}")
-        return {}
-    finally:
-        conn.close()
 
 init_db()
