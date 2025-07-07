@@ -1,8 +1,7 @@
 import streamlit as st
-import yfinance as yf
-import pandas as pd
 from datetime import datetime, timedelta
-from auth.auth import authenticate_user, logout_user, get_user_permissions
+import pandas as pd
+from auth.auth import authenticate_user, logout_user
 from core.data_fetcher import fetch_stock_data, get_current_price
 from core.visualization import create_interactive_chart, plot_volatility
 from core.news_analyzer import fetch_financial_news, display_news_with_insights
