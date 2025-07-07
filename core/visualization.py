@@ -3,16 +3,12 @@ import pandas as pd
 import numpy as np
 
 def create_interactive_chart(data):
-    """
-    Create interactive candlestick chart with range selector
-    """
     fig = go.Figure(data=[go.Candlestick(
         x=data.index,
         open=data['Open'],
         high=data['High'],
         low=data['Low'],
-        close=data['Close'],
-        name='Price'
+        close=data['Close']
     )])
     
     # Add moving averages
@@ -29,8 +25,8 @@ def create_interactive_chart(data):
         title='Interactive Stock Chart',
         xaxis_rangeslider_visible=True,
         template='plotly_dark',
-        hovermode='x unified',
-        height=600
+        height=600,
+        hovermode='x unified'
     )
     
     fig.update_xaxes(
@@ -50,9 +46,6 @@ def create_interactive_chart(data):
     return fig
 
 def plot_volatility(data):
-    """
-    Calculate and plot volatility metrics
-    """
     data['Daily_Return'] = data['Close'].pct_change()
     data['Volatility'] = data['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
     
@@ -67,7 +60,8 @@ def plot_volatility(data):
     fig.update_layout(
         height=300,
         showlegend=True,
-        template='plotly_dark'
+        template='plotly_dark',
+        margin=dict(l=20, r=20, t=30, b=20)
     )
     
     return fig
