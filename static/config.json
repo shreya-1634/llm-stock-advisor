@@ -10,6 +10,12 @@
     "TRADING": {
       "MAX_TRADE_AMOUNT": 5000,
       "PERMISSION_TIMEOUT": 30
+    },
+    "MODEL": {
+      "TRAINING_WINDOW": 60,
+      "PREDICTION_WINDOW": 7,
+      "EPOCHS": 50,
+      "BATCH_SIZE": 32
     }
   }
 }
