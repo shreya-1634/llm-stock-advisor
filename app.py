@@ -180,4 +180,13 @@ def main():
         show_main_app()
 
 if __name__ == "__main__":
-    main()
+    try:
+        if initialize_db():
+            main()
+        else:
+            st.error("Database initialization failed. Check logs for details.")
+            st.stop()
+    except Exception as e:
+        st.error(f"Critical error: {str(e)}")
+        logger.critical(f"Application failed to start: {str(e)}", exc_info=True)
+        st.stop()
