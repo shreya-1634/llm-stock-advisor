@@ -1,19 +1,20 @@
+# auth/auth.py
 import bcrypt
 import secrets
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 import logging
-import time  # Critical missing import
+import time  # <-- THIS IS THE CRITICAL MISSING IMPORT
 from core.config import get_db_connection
 import os
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional
 
-# Initialize logger
 logger = logging.getLogger(__name__)
 
-def initialize_db(max_retries: int = 3) -> bool:
-    """Initialize database tables with robust retry logic"""
+def initialize_db() -> bool:
+    """Initialize database tables with proper error handling"""
+    max_retries = 3
     for attempt in range(max_retries):
         conn = None
         try:
@@ -31,8 +32,7 @@ def initialize_db(max_retries: int = 3) -> bool:
                         is_verified BOOLEAN DEFAULT FALSE,
                         verification_token VARCHAR(100),
                         token_expires TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        permissions JSONB DEFAULT '{}'::jsonb
+                        created_at TIMESTAMP DEFAULT NOW()
                     )
                 """)
                 
@@ -40,15 +40,14 @@ def initialize_db(max_retries: int = 3) -> bool:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS password_resets (
                         id SERIAL PRIMARY KEY,
-                        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        user_id INTEGER REFERENCES users(id),
                         token VARCHAR(100) UNIQUE,
-                        expires_at TIMESTAMP NOT NULL,
-                        used BOOLEAN DEFAULT FALSE
+                        expires_at TIMESTAMP NOT NULL
                     )
                 """)
                 
                 conn.commit()
-                logger.info("Database initialized successfully")
+                logger.info("Database tables initialized successfully")
                 return True
                 
         except Exception as e:
@@ -56,11 +55,12 @@ def initialize_db(max_retries: int = 3) -> bool:
             if conn:
                 conn.rollback()
             if attempt == max_retries - 1:
-                raise RuntimeError(f"Failed after {max_retries} attempts")
-            time.sleep(2 ** attempt)  # Exponential backoff
+                raise
+            time.sleep(2)  # Exponential backoff
         finally:
             if conn:
                 conn.close()
+
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
     """Secure email sending with timeout and validation"""
