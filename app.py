@@ -2,11 +2,12 @@
 """
 Stock Advisor Pro - Complete Application
 """
-
+import time
 import streamlit as st
 from datetime import datetime, timedelta
 import sys
 from pathlib import Path
+# ✅ NEW (works if file is named auth_module.py)
 from auth.auth import (
     initialize_db,
     register_user,
