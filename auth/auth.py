@@ -1,22 +1,22 @@
 import bcrypt
-import re
 import secrets
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
-from core.config import get_logger, get_db_connection
-from core.security import generate_token, validate_token
+from core.config import get_db_connection, get_logger
 
 logger = get_logger(__name__)
 
-# Email configuration (replace with your SMTP details)
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_ADDRESS = "your.email@gmail.com"
-EMAIL_PASSWORD = "your-email-password"
+# Email configuration (update with your SMTP details)
+SMTP_CONFIG = {
+    "server": "smtp.gmail.com",
+    "port": 587,
+    "email": "your.email@gmail.com",
+    "password": "your-app-password"  # Use app-specific password
+}
 
 def initialize_db():
-    """Create necessary tables if they don't exist"""
+    """Create database tables if they don't exist"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -27,7 +27,6 @@ def initialize_db():
                     username VARCHAR(50) UNIQUE NOT NULL,
                     password_hash BYTEA NOT NULL,
                     full_name VARCHAR(100),
-                    age INTEGER,
                     is_verified BOOLEAN DEFAULT FALSE,
                     verification_token VARCHAR(100),
                     token_expires TIMESTAMP,
@@ -41,6 +40,9 @@ def initialize_db():
                 );
             """)
         conn.commit()
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}")
+        raise
     finally:
         conn.close()
 
@@ -48,68 +50,57 @@ def send_email(to_email, subject, body):
     """Send email using SMTP"""
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = EMAIL_ADDRESS
+    msg['From'] = SMTP_CONFIG["email"]
     msg['To'] = to_email
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_CONFIG["server"], SMTP_CONFIG["port"]) as server:
             server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.login(SMTP_CONFIG["email"], SMTP_CONFIG["password"])
             server.send_message(msg)
-        logger.info(f"Email sent to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
+        logger.error(f"Email failed to {to_email}: {str(e)}")
         return False
 
-def register_user(email, username, password, full_name=None, age=None):
-    """Register a new user with email verification"""
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return False, "Invalid email format"
-    
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters"
-
+def register_user(email, username, password, full_name=None):
+    """Register new user with email verification"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # Check if email or username exists
-            cur.execute(
-                "SELECT id FROM users WHERE email = %s OR username = %s",
-                (email, username)
-            )
+            # Check existing user
+            cur.execute("SELECT 1 FROM users WHERE email = %s OR username = %s", (email, username))
             if cur.fetchone():
                 return False, "Email or username already exists"
 
             # Hash password
-            salt = bcrypt.gensalt()
-            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), salt)
-
+            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            
             # Generate verification token
             token = secrets.token_urlsafe(32)
             expires = datetime.now() + timedelta(hours=24)
-
-            # Insert new user
+            
+            # Insert user
             cur.execute("""
-                INSERT INTO users (email, username, password_hash, full_name, age, verification_token, token_expires)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (email, username, hashed_pw, full_name, age, token, expires))
-
-            user_id = cur.fetchone()[0]
+                INSERT INTO users (email, username, password_hash, full_name, verification_token, token_expires)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (email, username, hashed_pw, full_name, token, expires))
+            
             conn.commit()
-
+            
             # Send verification email
-            verification_link = f"http://yourapp.com/verify?token={token}"
+            verification_link = f"http://yourdomain.com/?verify={token}"
             email_body = f"""
                 Welcome to Stock Advisor!
+                
                 Please verify your email by clicking:
                 {verification_link}
+                
                 This link expires in 24 hours.
             """
-            send_email(email, "Verify Your Email", email_body)
-
-            return True, "Registration successful! Check your email to verify."
+            if send_email(email, "Verify Your Email", email_body):
+                return True, "Registration successful! Check your email to verify."
+            return False, "Registration complete but failed to send verification email"
     except Exception as e:
         conn.rollback()
         logger.error(f"Registration failed: {str(e)}")
@@ -118,7 +109,7 @@ def register_user(email, username, password, full_name=None, age=None):
         conn.close()
 
 def verify_email(token):
-    """Verify user email using token"""
+    """Verify user's email using token"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -129,18 +120,18 @@ def verify_email(token):
                     token_expires = NULL
                 WHERE verification_token = %s 
                 AND token_expires > NOW()
-                RETURNING id
+                RETURNING email
             """, (token,))
             
             if cur.fetchone():
                 conn.commit()
                 return True, "Email verified successfully!"
-            return False, "Invalid or expired token"
+            return False, "Invalid or expired verification link"
     finally:
         conn.close()
 
 def authenticate_user(identifier, password):
-    """Authenticate using email or username"""
+    """Authenticate user with email/username and password"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -152,7 +143,7 @@ def authenticate_user(identifier, password):
             
             user = cur.fetchone()
             if user and bcrypt.checkpw(password.encode('utf-8'), user[1]):
-                return user[0]  # Return user ID
+                return user[0]
             return None
     finally:
         conn.close()
@@ -165,7 +156,7 @@ def initiate_password_reset(email):
             cur.execute("SELECT id FROM users WHERE email = %s", (email,))
             user = cur.fetchone()
             if not user:
-                return False  # Don't reveal if email exists
+                return True  # Don't reveal if email doesn't exist
             
             token = secrets.token_urlsafe(32)
             expires = datetime.now() + timedelta(hours=1)
@@ -177,11 +168,13 @@ def initiate_password_reset(email):
             
             conn.commit()
             
-            reset_link = f"http://yourapp.com/reset-password?token={token}"
+            reset_link = f"http://yourdomain.com/?reset={token}"
             email_body = f"""
                 Password Reset Request:
+                
                 Click here to reset your password:
                 {reset_link}
+                
                 This link expires in 1 hour.
             """
             return send_email(email, "Password Reset", email_body)
@@ -189,7 +182,7 @@ def initiate_password_reset(email):
         conn.close()
 
 def complete_password_reset(token, new_password):
-    """Finish password reset process"""
+    """Complete password reset"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -203,9 +196,7 @@ def complete_password_reset(token, new_password):
                 return False
             
             # Update password
-            salt = bcrypt.gensalt()
-            hashed_pw = bcrypt.hashpw(new_password.encode('utf-8'), salt)
-            
+            hashed_pw = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
             cur.execute("""
                 UPDATE users SET password_hash = %s
                 WHERE id = %s
