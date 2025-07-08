@@ -1,8 +1,9 @@
-import time
-import psycopg2
+# core/config.py
 import os
+import psycopg2
 from dotenv import load_dotenv
 import logging
+import time  # Ensure this exists
 
 load_dotenv()
 
@@ -23,14 +24,15 @@ def get_db_connection():
                 database=os.getenv("DB_NAME"),
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASSWORD"),
-                port=os.getenv("DB_PORT"),
-                connect_timeout=5
+                port=os.getenv("DB_PORT", "5432"),
+                connect_timeout=5,
+                sslmode="require"
             )
             return conn
         except psycopg2.OperationalError as e:
+            logging.warning(f"Connection attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
-                raise RuntimeError(f"Database connection failed after {max_retries} attempts: {str(e)}")
-            logging.warning(f"Retrying database connection (attempt {attempt + 1})...")
+                raise
             time.sleep(2)
 
 def setup_logging():
