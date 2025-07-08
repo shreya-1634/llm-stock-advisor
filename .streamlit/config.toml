@@ -1,12 +1,15 @@
+[theme]
+primaryColor = "#4b6cb7"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"
+
 [server]
-maxUploadSize = 1000
-enableCORS = false
-enableXsrfProtection = true
+headless = true  # Required for Streamlit Cloud
 port = 8501
+enableCORS = false
 
 [browser]
-serverAddress = ""
+serverAddress = "localhost"
 gatherUsageStats = false
-
-[logger]
-level = "INFO"
