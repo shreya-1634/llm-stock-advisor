@@ -1,41 +1,40 @@
 #!/usr/bin/env python3
 """
-Stock Advisor Pro - Complete Authentication System
+Stock Advisor Pro - Complete Application
 """
 
 import streamlit as st
+from datetime import datetime, timedelta
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from auth.auth import (
+    initialize_db,
+    register_user,
+    authenticate_user,
+    verify_email,
+    initiate_password_reset,
+    complete_password_reset
+)
+from core.config import setup_logging, get_logger
+from core.data_fetcher import fetch_stock_data
+from core.visualization import create_interactive_chart
+import logging
 
-# Fix imports and paths
-try:
-    sys.path.insert(0, str(Path(__file__).parent))
-    from auth.auth import (
-        initialize_db,
-        register_user,
-        authenticate_user,
-        verify_email,
-        initiate_password_reset,
-        complete_password_reset
-    )
-    from core.config import setup_logging, get_logger
-    from core.data_fetcher import fetch_stock_data
-    from core.visualization import create_interactive_chart
-except ImportError as e:
-    st.error(f"Module import error: {str(e)}")
-    st.error("Please install required packages:")
-    st.code("""
-    pip install -r requirements.txt
-    # Or manually:
-    pip install streamlit bcrypt psycopg2-binary python-dotenv pandas yfinance plotly
-    """)
-    st.stop()
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent))
 
-# Initialize system
+# Initialize logging
 setup_logging()
 logger = get_logger(__name__)
-initialize_db()
+
+# Initialize database
+try:
+    if not initialize_db():
+        st.error("Failed to initialize database")
+        st.stop()
+except Exception as e:
+    st.error(f"Database error: {str(e)}")
+    st.stop()
 
 # Page configuration
 st.set_page_config(
@@ -45,40 +44,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 def load_css():
+    """Load custom CSS styles"""
     st.markdown("""
     <style>
         .main { padding-top: 2rem; }
         .stTextInput input { font-size: 16px; }
-        .stButton button { width: 100%; }
+        .stButton button { width: 100%; margin-top: 1rem; }
         .error { color: #ff4b4b; }
         .success { color: #09ab3b; }
-        [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #4b6cb7 0%, #182848 100%);
-        }
         .sidebar .sidebar-content {
-            background: transparent;
+            background: linear-gradient(180deg, #4b6cb7 0%, #182848 100%);
+            color: white;
+        }
+        div[data-testid="stSidebarUserContent"] {
+            padding: 2rem 1rem;
         }
     </style>
     """, unsafe_allow_html=True)
 
-def handle_email_verification(token):
+def handle_email_verification(token: str):
     """Process email verification token"""
     success, message = verify_email(token)
     if success:
-        st.session_state.verification_status = (True, message)
+        st.session_state.verification_status = ("success", message)
     else:
-        st.session_state.verification_status = (False, message)
+        st.session_state.verification_status = ("error", message)
     st.experimental_set_query_params()
 
-def handle_password_reset(token):
+def handle_password_reset(token: str):
     """Handle password reset flow"""
     st.title("🔑 Reset Your Password")
     new_password = st.text_input("New Password", type="password", key="reset_pw")
     confirm_password = st.text_input("Confirm Password", type="password", key="reset_pw_confirm")
     
-    if st.button("Update Password"):
+    if st.button("Update Password", type="primary"):
         if new_password != confirm_password:
             st.error("Passwords don't match!")
         elif len(new_password) < 8:
@@ -146,7 +146,7 @@ def show_main_app():
     days = st.sidebar.slider("Analysis Period (days)", 30, 365, 90)
     
     if st.sidebar.button("Analyze", type="primary"):
-        with st.spinner("Crunching market data..."):
+        with st.spinner("Processing market data..."):
             try:
                 data = fetch_stock_data(ticker, datetime.now() - timedelta(days=days), datetime.now())
                 st.plotly_chart(create_interactive_chart(data), use_container_width=True)
@@ -159,15 +159,22 @@ def show_main_app():
         st.rerun()
 
 def main():
+    """Main application controller"""
     load_css()
     
-    # Check for verification/reset tokens in URL
+    # Initialize session state
+    if 'user_id' not in st.session_state:
+        st.session_state.user_id = None
+    
+    # Check URL parameters
     params = st.experimental_get_query_params()
     if "verify" in params:
         handle_email_verification(params["verify"][0])
     elif "reset" in params:
         handle_password_reset(params["reset"][0])
-    elif "user_id" not in st.session_state:
+    
+    # Show appropriate interface
+    if st.session_state.user_id is None:
         show_auth_interface()
     else:
         show_main_app()
