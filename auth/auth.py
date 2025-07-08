@@ -61,7 +61,6 @@ def initialize_db() -> bool:
             if conn:
                 conn.close()
 
-
 def send_email(to_email: str, subject: str, body: str) -> bool:
     """Secure email sending with timeout and validation"""
     try:
