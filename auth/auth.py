@@ -1,5 +1,21 @@
-import bcrypt
-import secrets
+# auth/auth.py (with fallback)
+try:
+    import bcrypt
+    def hash_password(password):
+        return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    def check_password(hashed, password):
+        return bcrypt.checkpw(password.encode('utf-8'), hashed)
+except ImportError:
+    import hashlib
+    import secrets
+    def hash_password(password):
+        salt = secrets.token_hex(8)
+        return f"{salt}${hashlib.sha256((password + salt).encode()).hexdigest()}".encode()
+    def check_password(hashed, password):
+        salt, stored_hash = hashed.decode().split('$')
+        computed_hash = hashlib.sha256((password + salt).encode()).hexdigest()
+        return computed_hash == stored_hash
+        
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
