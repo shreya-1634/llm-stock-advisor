@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 # ✅ NEW (works if file is named auth_module.py)
-from auth.auth import (
+from auths.auth import (
     initialize_db,
     register_user,
     authenticate_user,
