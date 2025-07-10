@@ -53,19 +53,34 @@ def register_user(username, email, password):
         hashed = hash_password(password)
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
+
+        # ✅ Create table if it doesn't exist
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT,
+                email TEXT PRIMARY KEY,
+                password TEXT,
+                verified BOOLEAN,
+                permissions TEXT,
+                tokens TEXT
+            )
+        """)
+
+        # ✅ Insert new user
         c.execute("""
             INSERT INTO users (username, email, password, verified, permissions, tokens)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (username, email, hashed, False, json.dumps({}), json.dumps({})))
+
         conn.commit()
         conn.close()
+        logger.info(f"User registered: {username}")
+        send_email(email, "Verify your email", f"Your verification token is: {generate_verification_token(email)}")
+        return True, "User registered successfully. Verification email sent."
 
-        token = generate_verification_token(email)
-        send_email(email, "Verify Your Email", f"Your verification token is: {token}")
-        logger.info(f"User registered: {email}")
-        return True, "User registered. Verification email sent."
     except sqlite3.IntegrityError:
         return False, "Email already registered."
+
 
 # ========== Authentication ==========
 def authenticate_user(email, password):
