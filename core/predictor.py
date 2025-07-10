@@ -6,7 +6,7 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 import json
 import os
-from core.config import get_logger
+from .config import get_logger
 
 logger = get_logger(__name__)
 
