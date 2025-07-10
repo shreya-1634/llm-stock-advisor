@@ -1,27 +1,21 @@
 # create_user_db.py
-
 import sqlite3
 
-def create_user_db():
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
+conn = sqlite3.connect("users.db")
+c = conn.cursor()
 
-    # Create the users table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            is_verified INTEGER DEFAULT 0,
-            is_admin INTEGER DEFAULT 0,
-            permissions TEXT DEFAULT '{}'
-        )
-    ''')
+c.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        username TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        verified BOOLEAN DEFAULT 0,
+        permissions TEXT,
+        tokens TEXT
+    )
+""")
 
-    conn.commit()
-    conn.close()
-    print("✅ users.db and users table created successfully.")
+conn.commit()
+conn.close()
 
-if __name__ == "__main__":
-    create_user_db()
+print("✅ users.db created or already exists with updated schema.")
