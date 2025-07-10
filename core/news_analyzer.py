@@ -1,9 +1,9 @@
 import streamlit as st
 from datetime import datetime, timedelta
-from core.api_manager import api_manager
+from .api_manager import api_manager
 from transformers import pipeline
 import torch
-from core.config import get_logger
+from .config import get_logger
 
 logger = get_logger(__name__)
 
