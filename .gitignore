@@ -1,56 +1,62 @@
-# .gitignore
-
-### Python ###
-# Byte-compiled / optimized files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
 # Virtual environment
-venv/
-.env/
 .venv/
 env/
-ENV/
+venv/
 
-# IDE files
-.idea/
-.vscode/
-*.swp
-*.swo
-
-### Database ###
-*.db
-*.sqlite
-*.dump
-
-### Secrets ###
+# Local environment variables
 .env
-.streamlit/secrets.toml
-config.json
+secrets.toml
 
-### Logs ###
-*.log
-logs/
+# Model files
+models/*.h5
+models/*.pkl
 
-### OS generated ###
+# Jupyter/IPython Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code settings
+.vscode/
+
+# macOS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
-### Jupyter ###
-.ipynb_checkpoints/
+# Logs
+*.log
+*.sqlite3
+*.db
 
-### Training Data ###
-models/
-!models/placeholder.txt  # Keep this empty file to preserve folder structure
+# Streamlit cache
+.streamlit/config.toml
+.streamlit/secrets.toml
 
-### Static files ###
-static/config.json
+# Pytest cache
+.pytest_cache/
 
-### Streamlit ###
-.streamlit/config.toml  # Keep this if you want to share UI config
+# mypy
+.mypy_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+.cache
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Static builds or exported charts/images
+*.pdf
+*.png
+*.jpg
+*.jpeg
+charts_export/
+
+# Temporary files
+*.bak
+*.tmp
