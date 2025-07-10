@@ -4,7 +4,8 @@ import secrets
 import json
 from datetime import datetime, timedelta
 from core.config import get_logger
-from streamlit.secrets import email as email_conf
+import streamlit as st
+email_conf = st.secrets["email"]
 import smtplib
 from email.mime.text import MIMEText
 from auths.auth import (
@@ -45,10 +46,9 @@ def send_email(to, subject, body):
             server.login(email_conf["email"], email_conf["password"])
             server.send_message(msg)
 
-        logger.info(f"Email sent to {to}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
+        print(f"Email failed: {e}")
         return False
 
 # Register user
