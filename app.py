@@ -2,12 +2,13 @@
 """
 Stock Advisor Pro - Complete Application
 """
+
 import time
 import streamlit as st
 from datetime import datetime, timedelta
 import sys
 from pathlib import Path
-# ✅ NEW (works if file is named auth_module.py)
+
 from auths.auth import (
     initialize_db,
     register_user,
@@ -16,178 +17,144 @@ from auths.auth import (
     initiate_password_reset,
     complete_password_reset
 )
+
 from core.config import setup_logging, get_logger
 from core.data_fetcher import fetch_stock_data
 from core.visualization import create_interactive_chart
-import logging
+from core.predictor import predict_future_prices
+from core.news_analyzer import news_analyzer, display_news_with_insights
+from core.trading_engine import TradingEngine
+import plotly.graph_objects as go
 
-# Add project root to path
+# Add root path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Initialize logging
+# Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
-# Initialize database
+# App title and settings
+st.set_page_config(page_title="📊 LLM Stock Advisor Pro", layout="wide")
+st.markdown("<h1 style='text-align: center;'>📊 LLM Stock Advisor Pro</h1>", unsafe_allow_html=True)
+st.markdown("---")
+
+# Initialize DB
 try:
     if not initialize_db():
-        st.error("Failed to initialize database")
+        st.error("⚠️ Failed to initialize database")
         st.stop()
 except Exception as e:
-    st.error(f"Database error: {str(e)}")
+    st.exception(f"Database Initialization Failed: {e}")
     st.stop()
 
-# Page configuration
-st.set_page_config(
-    page_title="Stock Advisor Pro",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Authentication Block
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-def load_css():
-    """Load custom CSS styles"""
-    st.markdown("""
-    <style>
-        .main { padding-top: 2rem; }
-        .stTextInput input { font-size: 16px; }
-        .stButton button { width: 100%; margin-top: 1rem; }
-        .error { color: #ff4b4b; }
-        .success { color: #09ab3b; }
-        .sidebar .sidebar-content {
-            background: linear-gradient(180deg, #4b6cb7 0%, #182848 100%);
-            color: white;
-        }
-        div[data-testid="stSidebarUserContent"] {
-            padding: 2rem 1rem;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-def handle_email_verification(token: str):
-    """Process email verification token"""
-    success, message = verify_email(token)
-    if success:
-        st.session_state.verification_status = ("success", message)
-    else:
-        st.session_state.verification_status = ("error", message)
-    st.experimental_set_query_params()
-
-def handle_password_reset(token: str):
-    """Handle password reset flow"""
-    st.title("🔑 Reset Your Password")
-    new_password = st.text_input("New Password", type="password", key="reset_pw")
-    confirm_password = st.text_input("Confirm Password", type="password", key="reset_pw_confirm")
-    
-    if st.button("Update Password", type="primary"):
-        if new_password != confirm_password:
-            st.error("Passwords don't match!")
-        elif len(new_password) < 8:
-            st.error("Password must be at least 8 characters")
-        else:
-            if complete_password_reset(token, new_password):
-                st.success("Password updated successfully! Please login.")
-                st.experimental_set_query_params()
-            else:
-                st.error("Invalid or expired reset link")
-
-def show_auth_interface():
-    """Show login/registration interface"""
-    tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Register", "🔑 Forgot Password"])
-    
-    with tab1:
-        st.header("Login to Your Account")
-        identifier = st.text_input("Email or Username", key="login_id")
-        password = st.text_input("Password", type="password", key="login_pw")
-        
-        if st.button("Sign In", type="primary"):
-            user_id = authenticate_user(identifier, password)
+auth_tab = st.sidebar.radio("👤 Authentication", ["Login", "Register", "Reset Password"])
+if not st.session_state.authenticated:
+    if auth_tab == "Login":
+        st.sidebar.subheader("🔐 Login")
+        email = st.sidebar.text_input("Email")
+        password = st.sidebar.text_input("Password", type="password")
+        if st.sidebar.button("Login"):
+            user_id = authenticate_user(email, password)
             if user_id:
+                st.session_state.authenticated = True
                 st.session_state.user_id = user_id
-                st.rerun()
+                st.success("✅ Logged in successfully")
+                st.experimental_rerun()
             else:
-                st.error("Invalid credentials or email not verified")
+                st.error("❌ Invalid credentials")
 
-    with tab2:
-        st.header("Create New Account")
-        email = st.text_input("Email Address", key="reg_email")
-        username = st.text_input("Username", key="reg_user")
-        full_name = st.text_input("Full Name", key="reg_name")
-        password = st.text_input("Password", type="password", key="reg_pw")
-        confirm = st.text_input("Confirm Password", type="password", key="reg_pw2")
-        
-        if st.button("Register", type="primary"):
-            if password != confirm:
-                st.error("Passwords don't match!")
-            elif len(password) < 8:
-                st.error("Password must be at least 8 characters")
-            else:
-                success, message = register_user(email, username, password, full_name)
-                if success:
-                    st.success(message)
+    elif auth_tab == "Register":
+        st.sidebar.subheader("📝 Register")
+        name = st.sidebar.text_input("Name")
+        email = st.sidebar.text_input("Email")
+        password = st.sidebar.text_input("Password", type="password")
+        confirm = st.sidebar.text_input("Confirm Password", type="password")
+        if st.sidebar.button("Register"):
+            if password == confirm:
+                registered = register_user(name, email, password)
+                if registered:
+                    st.success("✅ Registered! Please log in.")
                 else:
-                    st.error(message)
-
-    with tab3:
-        st.header("Reset Your Password")
-        email = st.text_input("Registered Email", key="reset_email")
-        if st.button("Send Reset Link", type="primary"):
-            if initiate_password_reset(email):
-                st.success("Reset link sent to your email!")
+                    st.error("Registration failed.")
             else:
-                st.error("Failed to send reset link")
+                st.warning("Passwords do not match")
 
-def show_main_app():
-    """Main application after login"""
-    st.title("📈 Stock Advisor Pro")
-    
-    # Stock analysis UI
-    st.sidebar.header("Analysis Parameters")
-    ticker = st.sidebar.text_input("Ticker Symbol", "AAPL").upper()
-    days = st.sidebar.slider("Analysis Period (days)", 30, 365, 90)
-    
-    if st.sidebar.button("Analyze", type="primary"):
-        with st.spinner("Processing market data..."):
-            try:
-                data = fetch_stock_data(ticker, datetime.now() - timedelta(days=days), datetime.now())
-                st.plotly_chart(create_interactive_chart(data), use_container_width=True)
-            except Exception as e:
-                st.error(f"Analysis failed: {str(e)}")
-    
-    # Logout button
-    if st.sidebar.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
+    elif auth_tab == "Reset Password":
+        st.sidebar.subheader("🔁 Reset Password")
+        email = st.sidebar.text_input("Email")
+        new_pass = st.sidebar.text_input("New Password", type="password")
+        otp = st.sidebar.text_input("Enter OTP")
+        if st.sidebar.button("Request OTP"):
+            initiate_password_reset(email)
+            st.info("OTP sent if email exists.")
+        if st.sidebar.button("Reset"):
+            if complete_password_reset(email, otp, new_pass):
+                st.success("✅ Password reset successful.")
+            else:
+                st.error("❌ OTP or Email invalid")
 
-def main():
-    """Main application controller"""
-    load_css()
-    
-    # Initialize session state
-    if 'user_id' not in st.session_state:
-        st.session_state.user_id = None
-    
-    # Check URL parameters
-    params = st.experimental_get_query_params()
-    if "verify" in params:
-        handle_email_verification(params["verify"][0])
-    elif "reset" in params:
-        handle_password_reset(params["reset"][0])
-    
-    # Show appropriate interface
-    if st.session_state.user_id is None:
-        show_auth_interface()
-    else:
-        show_main_app()
+# MAIN APP
+if st.session_state.authenticated:
 
-if __name__ == "__main__":
-    try:
-        if initialize_db():
-            main()
-        else:
-            st.error("Database initialization failed. Check logs for details.")
-            st.stop()
-    except Exception as e:
-        st.error(f"Critical error: {str(e)}")
-        logger.critical(f"Application failed to start: {str(e)}", exc_info=True)
+    st.sidebar.success(f"👋 Welcome, {st.session_state.user_id}")
+    ticker = st.sidebar.text_input("Enter Stock Ticker", value="AAPL")
+    hist_days = st.sidebar.slider("📅 History (days)", 30, 1500, 365)
+    pred_days = st.sidebar.slider("🔮 Predict Days", 1, 15, 7)
+    show_news = st.sidebar.checkbox("🗞️ Show News", value=True)
+
+    if not ticker:
+        st.warning("Enter a valid ticker to proceed.")
         st.stop()
+
+    try:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=hist_days)
+
+        # Data fetching
+        data = fetch_stock_data(ticker, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+        st.subheader(f"📊 Historical Chart - {ticker}")
+        st.plotly_chart(create_interactive_chart(data), use_container_width=True)
+
+        # Forecasting
+        st.subheader("📈 LSTM Forecast")
+        future_df = predict_future_prices(data, pred_days)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=data.index, y=data["Close"], name="Historical"))
+        fig.add_trace(go.Scatter(x=future_df.index, y=future_df["Close"], name="Forecasted"))
+        fig.update_layout(template="plotly_dark", height=400)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # News & Sentiment
+        if show_news:
+            st.subheader("📰 News & Sentiment")
+            news = news_analyzer.fetch_financial_news(ticker)
+            display_news_with_insights(news)
+        else:
+            news = None
+
+        # Smart Trade Suggestion
+        st.subheader("🧠 Smart Trade Recommendation")
+        engine = TradingEngine(username=st.session_state.user_id)
+        result = engine.generate_recommendation(data, news)
+        st.info(f"💡 **Recommendation:** `{result['recommendation']}`")
+
+        st.markdown("### 📊 Signal Strengths")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("📉 MA Signal", result['indicators']['MA Signal'])
+        col2.metric("📈 RSI Signal", result['indicators']['RSI Signal'])
+        col3.metric("💬 Sentiment", result['indicators']['Sentiment Signal'])
+
+        # Export Option
+        st.download_button(
+            label="📥 Export Chart as Image",
+            data=fig.to_image(format="png"),
+            file_name=f"{ticker}_forecast.png",
+            mime="image/png"
+        )
+
+    except Exception as e:
+        st.error(f"Error: {e}")
