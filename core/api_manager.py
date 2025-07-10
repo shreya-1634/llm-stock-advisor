@@ -2,7 +2,7 @@ import streamlit as st
 import json
 from openai import OpenAI
 from newsapi import NewsApiClient
-from core.config import get_logger
+from .config import get_logger
 
 logger = get_logger(__name__)
 
