@@ -2,8 +2,8 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from core.data_fetcher import get_current_price
-from core.config import get_logger
+from .data_fetcher import get_current_price
+from .config import get_logger
 
 logger = get_logger(__name__)
 
