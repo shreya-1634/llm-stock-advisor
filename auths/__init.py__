@@ -1,2 +1,4 @@
-from .auth import authenticate_user, logout_user, create_user
-from .permissions import request_permission, check_permission, grant_permission
+from .auth import (
+    register_user, authenticate_user, verify_email,
+    initiate_password_reset, complete_password_reset, send_email
+)
