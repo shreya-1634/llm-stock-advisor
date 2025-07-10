@@ -7,10 +7,10 @@ import time  # Ensure this exists
 
 load_dotenv()
 
-def get_logger(name):
+def get_logger(name=__name__):
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     return logging.getLogger(name)
 
