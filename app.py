@@ -20,6 +20,13 @@ from auths.auth import (
 logger = get_logger(__name__)
 DB_FILE = "users.db"
 
+# 🛠️ TEMPORARY IMPORT FIX
+try:
+    from core.visualization import create_interactive_chart, plot_volatility
+except ImportError as e:
+    st.error(f"❌ Failed to import visualization module: {e}")
+    raise
+
 # Hashing
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
