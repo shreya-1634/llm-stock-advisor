@@ -1,14 +1,19 @@
-# train_model.py
 from core.data_fetcher import fetch_stock_data
 from core.predictor import LSTMPredictor
 import os
 
-# Create directories if they don't exist
+# Setup folders
 os.makedirs("models", exist_ok=True)
 os.makedirs("static", exist_ok=True)
 
-# Train and save model
+# Initialize predictor
 predictor = LSTMPredictor()
-data = fetch_stock_data("AAPL", "2010-01-01", "2023-01-01")  # Broad date range for robust training
-predictor.train_and_save_model(data, "models/lstm_model.h5")
-print("Model trained and saved to models/lstm_model.h5")
+
+# Fetch training data (example: AAPL)
+print("Fetching training data for AAPL...")
+training_data = fetch_stock_data("AAPL", "2010-01-01", "2023-01-01")
+
+# Train and save model
+print("Training LSTM model...")
+predictor.train_and_save_model(training_data, "models/lstm_model.h5")
+print("✅ Model saved to models/lstm_model.h5")
