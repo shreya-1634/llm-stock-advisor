@@ -1,3 +1,4 @@
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
@@ -7,75 +8,72 @@ logger = get_logger(__name__)
 
 def create_interactive_chart(data):
     try:
-        fig = go.Figure()
-
-        # Candlestick
-        fig.add_trace(go.Candlestick(
-            x=data.index,
-            open=data['Open'],
-            high=data['High'],
-            low=data['Low'],
-            close=data['Close'],
-            name="Candlestick"
-        ))
-
         # Moving Averages
-        for window in [20, 50]:
-            data[f"MA_{window}"] = data['Close'].rolling(window=window).mean()
-            fig.add_trace(go.Scatter(
-                x=data.index,
-                y=data[f"MA_{window}"],
-                name=f"{window}-Day MA",
-                line=dict(width=1)
-            ))
+        data['MA_20'] = data['Close'].rolling(window=20).mean()
+        data['MA_50'] = data['Close'].rolling(window=50).mean()
 
         # Bollinger Bands
-        rolling_mean = data['Close'].rolling(window=20).mean()
-        rolling_std = data['Close'].rolling(window=20).std()
-        data['Upper'] = rolling_mean + (rolling_std * 2)
-        data['Lower'] = rolling_mean - (rolling_std * 2)
+        data['BB_MID'] = data['MA_20']
+        data['BB_STD'] = data['Close'].rolling(window=20).std()
+        data['BB_UPPER'] = data['BB_MID'] + 2 * data['BB_STD']
+        data['BB_LOWER'] = data['BB_MID'] - 2 * data['BB_STD']
 
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Upper'],
-            line=dict(color='rgba(173,216,230,0.2)'),
-            name='Upper Band'
-        ))
-
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Lower'],
-            fill='tonexty',
-            line=dict(color='rgba(173,216,230,0.2)'),
-            name='Lower Band'
-        ))
+        # RSI (Relative Strength Index)
+        delta = data['Close'].diff()
+        gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+        rs = gain / loss
+        data['RSI'] = 100 - (100 / (1 + rs))
 
         # MACD
-        data['EMA12'] = data['Close'].ewm(span=12, adjust=False).mean()
-        data['EMA26'] = data['Close'].ewm(span=26, adjust=False).mean()
-        data['MACD'] = data['EMA12'] - data['EMA26']
+        ema12 = data['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = data['Close'].ewm(span=26, adjust=False).mean()
+        data['MACD'] = ema12 - ema26
         data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-        fig.update_layout(
-            title="Interactive Stock Chart with Technical Indicators",
-            xaxis_rangeslider_visible=True,
-            height=700,
-            template='plotly_dark',
-            hovermode='x unified'
-        )
+        # Plotly figure
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                            vertical_spacing=0.05,
+                            row_heights=[0.6, 0.2, 0.2],
+                            subplot_titles=("Price Chart with Indicators", "RSI", "MACD"))
 
-        fig.update_xaxes(
-            rangeslider_visible=True,
-            rangeselector=dict(
-                buttons=[
-                    dict(count=1, label="1D", step="day", stepmode="backward"),
-                    dict(count=1, label="1M", step="month", stepmode="backward"),
-                    dict(count=2, label="2M", step="month", stepmode="backward"),
-                    dict(count=6, label="6M", step="month", stepmode="backward"),
-                    dict(count=1, label="1Y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ]
-            )
+        # Row 1: Candlestick + MAs + Bollinger Bands
+        fig.add_trace(go.Candlestick(
+            x=data.index,
+            open=data['Open'], high=data['High'],
+            low=data['Low'], close=data['Close'],
+            name="Candlestick"
+        ), row=1, col=1)
+
+        fig.add_trace(go.Scatter(x=data.index, y=data['MA_20'],
+                                 name='20-Day MA', line=dict(color='blue', width=1)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['MA_50'],
+                                 name='50-Day MA', line=dict(color='orange', width=1)), row=1, col=1)
+
+        fig.add_trace(go.Scatter(x=data.index, y=data['BB_UPPER'],
+                                 name='Bollinger Upper', line=dict(color='lightgray', width=1)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['BB_LOWER'],
+                                 name='Bollinger Lower', line=dict(color='lightgray', width=1)), row=1, col=1)
+
+        # Row 2: RSI
+        fig.add_trace(go.Scatter(x=data.index, y=data['RSI'],
+                                 name='RSI', line=dict(color='purple')), row=2, col=1)
+        fig.add_hline(y=70, line_dash='dash', line_color='red', row=2, col=1)
+        fig.add_hline(y=30, line_dash='dash', line_color='green', row=2, col=1)
+
+        # Row 3: MACD
+        fig.add_trace(go.Scatter(x=data.index, y=data['MACD'],
+                                 name='MACD', line=dict(color='black')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['Signal'],
+                                 name='Signal Line', line=dict(color='red')), row=3, col=1)
+
+        # Layout
+        fig.update_layout(
+            height=900,
+            template='plotly_dark',
+            title='📊 Advanced Stock Chart',
+            hovermode='x unified',
+            xaxis_rangeslider_visible=False
         )
 
         return fig
