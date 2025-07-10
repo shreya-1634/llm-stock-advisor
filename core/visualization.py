@@ -87,23 +87,3 @@ def plot_macd(data):
 
     return fig
 
-
-def plot_volatility(data):
-    import plotly.graph_objs as go
-    import pandas as pd
-
-    data['Returns'] = data['Close'].pct_change()
-    data['Volatility'] = data['Returns'].rolling(window=10).std()
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=data.index, y=data['Volatility'],
-                             mode='lines', name='Volatility'))
-
-    fig.update_layout(title="Volatility Over Time",
-                      xaxis_title='Date',
-                      yaxis_title='Volatility')
-    return fig
-
-    except Exception as e:
-        logger.error(f"Volatility plot failed: {str(e)}")
-        return go.Figure()
