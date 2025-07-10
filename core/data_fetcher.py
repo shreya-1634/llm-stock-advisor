@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 from datetime import datetime
-from core.config import get_logger
+from .config import get_logger
 
 logger = get_logger(__name__)
 
