@@ -1,15 +1,18 @@
-[theme]
-primaryColor = "#4b6cb7"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
-font = "sans serif"
-
 [server]
-headless = true  # Required for Streamlit Cloud
+headless = true
 port = 8501
 enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 100
 
-[browser]
-serverAddress = "localhost"
-gatherUsageStats = false
+[theme]
+base = "dark"
+primaryColor = "#4a8cff"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1a1d24"
+textColor = "#f0f2f6"
+font = "sans serif"
+
+[client]
+showErrorDetails = true
+toolbarMode = "minimal"
