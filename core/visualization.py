@@ -89,25 +89,21 @@ def plot_macd(data):
 
 
 def plot_volatility(data):
-    try:
-        data['Daily_Return'] = data['Close'].pct_change()
-        data['Volatility'] = data['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
+    import plotly.graph_objs as go
+    import pandas as pd
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Volatility'],
-            name='Volatility',
-            line=dict(color='orange')
-        ))
+    data['Returns'] = data['Close'].pct_change()
+    data['Volatility'] = data['Returns'].rolling(window=10).std()
 
-        fig.update_layout(
-            title='📊 Volatility (20-day Rolling)',
-            template='plotly_dark',
-            height=300,
-            margin=dict(l=20, r=20, t=30, b=20)
-        )
-        return fig
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['Volatility'],
+                             mode='lines', name='Volatility'))
+
+    fig.update_layout(title="Volatility Over Time",
+                      xaxis_title='Date',
+                      yaxis_title='Volatility')
+    return fig
+
     except Exception as e:
         logger.error(f"Volatility plot failed: {str(e)}")
         return go.Figure()
