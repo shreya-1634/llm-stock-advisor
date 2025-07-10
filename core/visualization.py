@@ -1,99 +1,92 @@
 import plotly.graph_objects as go
+import pandas as pd
 import numpy as np
 from core.config import get_logger
 
 logger = get_logger(__name__)
 
-def calculate_indicators(data):
-    # Bollinger Bands
+def create_interactive_chart(data, ticker):
+    fig = go.Figure()
+
+    fig.add_trace(go.Candlestick(
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
+        name="Candlestick"
+    ))
+
+    # Moving Averages
     data['MA20'] = data['Close'].rolling(window=20).mean()
-    data['STD20'] = data['Close'].rolling(window=20).std()
-    data['Upper'] = data['MA20'] + (2 * data['STD20'])
-    data['Lower'] = data['MA20'] - (2 * data['STD20'])
+    data['MA50'] = data['Close'].rolling(window=50).mean()
 
-    # RSI
+    fig.add_trace(go.Scatter(x=data.index, y=data['MA20'], mode='lines', name='MA20', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['MA50'], mode='lines', name='MA50', line=dict(color='red')))
+
+    # Bollinger Bands
+    data['STD'] = data['Close'].rolling(window=20).std()
+    data['Upper'] = data['MA20'] + 2 * data['STD']
+    data['Lower'] = data['MA20'] - 2 * data['STD']
+
+    fig.add_trace(go.Scatter(x=data.index, y=data['Upper'], name='Upper Band', line=dict(color='gray', dash='dot')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['Lower'], name='Lower Band', line=dict(color='gray', dash='dot')))
+
+    fig.update_layout(
+        title=f'📈 {ticker} Candlestick Chart with MA & Bollinger Bands',
+        xaxis_title='Date',
+        yaxis_title='Price (USD)',
+        template='plotly_dark',
+        xaxis_rangeslider_visible=False,
+        height=600
+    )
+
+    return fig
+
+
+def plot_rsi(data):
     delta = data['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
-    data['RSI'] = 100 - (100 / (1 + rs))
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
 
-    # MACD
-    data['EMA12'] = data['Close'].ewm(span=12, adjust=False).mean()
-    data['EMA26'] = data['Close'].ewm(span=26, adjust=False).mean()
-    data['MACD'] = data['EMA12'] - data['EMA26']
-    data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
 
-    return data
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
 
-def create_interactive_chart(data, period="6mo"):
-    try:
-        data = calculate_indicators(data)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=rsi, name='RSI', line=dict(color='orange')))
+    fig.add_hline(y=70, line=dict(color='red', dash='dash'))
+    fig.add_hline(y=30, line=dict(color='green', dash='dash'))
 
-        fig = go.Figure()
+    fig.update_layout(
+        title="RSI (Relative Strength Index)",
+        template="plotly_dark",
+        height=300
+    )
 
-        # Candlestick
-        fig.add_trace(go.Candlestick(
-            x=data.index,
-            open=data['Open'],
-            high=data['High'],
-            low=data['Low'],
-            close=data['Close'],
-            name='Candlestick'
-        ))
+    return fig
 
-        # Bollinger Bands
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Upper'],
-            line=dict(color='rgba(173,216,230,0.3)', width=1),
-            name='Upper Band'
-        ))
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Lower'],
-            line=dict(color='rgba(173,216,230,0.3)', width=1),
-            name='Lower Band',
-            fill='tonexty',
-            fillcolor='rgba(173,216,230,0.1)'
-        ))
 
-        # Moving averages
-        for ma in [20, 50]:
-            data[f'MA_{ma}'] = data['Close'].rolling(window=ma).mean()
-            fig.add_trace(go.Scatter(
-                x=data.index,
-                y=data[f'MA_{ma}'],
-                mode='lines',
-                name=f'{ma}-Day MA',
-                line=dict(width=1)
-            ))
+def plot_macd(data):
+    exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+    macd = exp1 - exp2
+    signal = macd.ewm(span=9, adjust=False).mean()
 
-        # Layout and time filter buttons
-        fig.update_layout(
-            title='📈 Stock Price Chart with Indicators',
-            xaxis_rangeslider_visible=True,
-            template='plotly_dark',
-            hovermode='x unified',
-            height=600,
-            xaxis=dict(
-                rangeselector=dict(
-                    buttons=list([
-                        dict(count=1, label="1D", step="day", stepmode="backward"),
-                        dict(count=1, label="1M", step="month", stepmode="backward"),
-                        dict(count=2, label="2M", step="month", stepmode="backward"),
-                        dict(count=6, label="6M", step="month", stepmode="backward"),
-                        dict(count=1, label="1Y", step="year", stepmode="backward"),
-                        dict(step="all")
-                    ])
-                ),
-                rangeslider=dict(visible=True)
-            )
-        )
-        return fig
-    except Exception as e:
-        logger.error(f"Error generating chart: {e}")
-        return go.Figure()
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=macd, name='MACD', line=dict(color='cyan')))
+    fig.add_trace(go.Scatter(x=data.index, y=signal, name='Signal', line=dict(color='magenta')))
+
+    fig.update_layout(
+        title="MACD (Moving Average Convergence Divergence)",
+        template="plotly_dark",
+        height=300
+    )
+
+    return fig
+
 
 def plot_volatility(data):
     try:
@@ -117,52 +110,4 @@ def plot_volatility(data):
         return fig
     except Exception as e:
         logger.error(f"Volatility plot failed: {str(e)}")
-        return go.Figure()
-
-def plot_rsi(data):
-    try:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['RSI'],
-            name='RSI',
-            line=dict(color='cyan')
-        ))
-        fig.add_hline(y=70, line=dict(dash='dash', color='red'))
-        fig.add_hline(y=30, line=dict(dash='dash', color='green'))
-
-        fig.update_layout(
-            title='💡 Relative Strength Index (RSI)',
-            template='plotly_dark',
-            height=300
-        )
-        return fig
-    except Exception as e:
-        logger.error(f"RSI plot failed: {str(e)}")
-        return go.Figure()
-
-def plot_macd(data):
-    try:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['MACD'],
-            name='MACD',
-            line=dict(color='blue')
-        ))
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Signal'],
-            name='Signal Line',
-            line=dict(color='orange')
-        ))
-
-        fig.update_layout(
-            title='📊 MACD (Moving Average Convergence Divergence)',
-            template='plotly_dark',
-            height=300
-        )
-        return fig
-    except Exception as e:
-        logger.error(f"MACD plot failed: {str(e)}")
         return go.Figure()
