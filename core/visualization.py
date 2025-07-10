@@ -120,3 +120,67 @@ def plot_macd(data):
     except Exception as e:
         logger.error(f"MACD chart failed: {str(e)}")
         return go.Figure()
+
+def plot_volatility(data):
+    # Compute daily return
+    data['Daily_Return'] = data['Close'].pct_change()
+
+    # Compute annualized volatility
+    data['Volatility'] = data['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
+
+    # Compute RSI (14-day)
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    data['RSI'] = 100 - (100 / (1 + rs))
+
+    # Compute Bollinger Bands (20-day moving average and std dev)
+    data['MA20'] = data['Close'].rolling(window=20).mean()
+    data['Upper_Band'] = data['MA20'] + 2 * data['Close'].rolling(window=20).std()
+    data['Lower_Band'] = data['MA20'] - 2 * data['Close'].rolling(window=20).std()
+
+    fig = go.Figure()
+
+    # Volatility line
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Volatility'],
+        name='Volatility (20D)',
+        line=dict(color='orange', width=2)
+    ))
+
+    # RSI line
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['RSI'],
+        name='RSI (14D)',
+        line=dict(color='cyan', width=2)
+    ))
+
+    # Bollinger Band (Upper)
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Upper_Band'],
+        name='Bollinger Upper',
+        line=dict(color='lightgreen', dash='dash')
+    ))
+
+    # Bollinger Band (Lower)
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Lower_Band'],
+        name='Bollinger Lower',
+        line=dict(color='lightcoral', dash='dash')
+    ))
+
+    fig.update_layout(
+        title="Volatility, RSI & Bollinger Bands",
+        xaxis_title="Date",
+        yaxis_title="Value",
+        template='plotly_dark',
+        height=500,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    return fig
