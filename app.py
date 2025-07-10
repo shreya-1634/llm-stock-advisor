@@ -16,7 +16,11 @@ from auths.auth import (
     logout_user,
     get_logged_in_user
 )
-from core.visualization import create_interactive_chart, plot_rsi, plot_macd
+from core.visualization import (
+create_interactive_chart, 
+plot_rsi, 
+plot_macd
+)
 
 logger = get_logger(__name__)
 DB_FILE = "users.db"
