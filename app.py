@@ -1,120 +1,169 @@
-import streamlit as st
-from auths.auth import (
-    register_user, authenticate_user, verify_email,
-    initiate_password_reset, complete_password_reset,
-    get_user_info, init_db
-)
-from core.news_analyzer import news_analyzer, display_news_with_insights
-from core.data_fetcher import fetch_stock_data
-from core.predictor import predict_future_prices
-from core.visualization import create_interactive_chart, plot_volatility
-from core.trading_engine import TradingEngine
-from datetime import datetime
+# auths/auth.py
+import sqlite3
+import hashlib
+import secrets
+import json
+from datetime import datetime, timedelta
+from core.config import get_logger
+from streamlit.secrets import email as email_conf
+import smtplib
+from email.mime.text import MIMEText
 
-# Initialize user DB on startup
-init_db()
+logger = get_logger(__name__)
 
-# Page setup
-st.set_page_config(page_title="📊 Stock Advisor", layout="wide")
-st.title("📈 LLM-Powered Stock Advisor")
+DB_FILE = "users.db"
 
-# --- EMAIL VERIFICATION HANDLING ---
-query_params = st.experimental_get_query_params()
-if "verify_token" in query_params:
-    token = query_params["verify_token"][0]
-    if verify_email(token):
-        st.success("✅ Email verified successfully! You can now login.")
-    else:
-        st.error("❌ Invalid or expired verification link.")
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# --- PASSWORD RESET HANDLING ---
-if "reset_token" in query_params:
-    token = query_params["reset_token"][0]
-    st.subheader("🔐 Reset Password")
-    new_pw = st.text_input("Enter New Password", type="password")
-    if st.button("Reset Password"):
-        if complete_password_reset(token, new_pw):
-            st.success("✅ Password reset successfully. You may now login.")
-        else:
-            st.error("❌ Invalid or expired token.")
-    st.stop()
+def verify_password(password, hashed):
+    return hash_password(password) == hashed
 
-# --- SESSION STATE HANDLING ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+def send_email(to, subject, body):
+    try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = email_conf["email"]
+        msg["To"] = to
 
-# --- LOGIN / REGISTER UI ---
-if not st.session_state["authenticated"]:
-    tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Register", "🔁 Reset Password"])
+        with smtplib.SMTP(email_conf["smtp_server"], int(email_conf["smtp_port"])) as server:
+            server.starttls()
+            server.login(email_conf["email"], email_conf["password"])
+            server.send_message(msg)
 
-    with tab1:
-        st.subheader("Login")
-        email = st.text_input("Email")
-        pw = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if authenticate_user(email, pw):
-                st.session_state["authenticated"] = True
-                st.session_state["user_email"] = email
-                name, is_admin = get_user_info(email)
-                st.session_state["user_name"] = name
-                st.session_state["is_admin"] = bool(is_admin)
-                st.experimental_rerun()
-            else:
-                st.error("Login failed or email not verified.")
+        logger.info(f"Email sent to {to}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {str(e)}")
+        return False
 
-    with tab2:
-        st.subheader("Register")
-        name = st.text_input("Full Name")
-        email = st.text_input("Email", key="register_email")
-        pw = st.text_input("Password", type="password", key="register_pw")
-        if st.button("Register"):
-            if register_user(name, email, pw):
-                st.success("✅ Registered successfully! Check your email to verify.")
-            else:
-                st.error("❌ Email already registered.")
+def register_user(username, email, password):
+    hashed = hash_password(password)
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT INTO users (username, email, password, verified, permissions, tokens) VALUES (?, ?, ?, ?, ?, ?)",
+                  (username, email, hashed, False, json.dumps({}), json.dumps({})))
+        conn.commit()
+        conn.close()
+        logger.info(f"User registered: {username}")
+        return True
+    except sqlite3.IntegrityError:
+        return False
 
-    with tab3:
-        st.subheader("Reset Password")
-        email = st.text_input("Enter your email", key="reset_email")
-        if st.button("Send Reset Link"):
-            initiate_password_reset(email)
-            st.info("📧 If your email exists, a reset link has been sent.")
-    st.stop()
+def authenticate_user(email, password):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE email = ?", (email,))
+    row = c.fetchone()
+    conn.close()
+    if row and verify_password(password, row[2]):
+        return {
+            "username": row[0],
+            "email": row[1],
+            "verified": bool(row[3]),
+            "permissions": json.loads(row[4] or "{}"),
+            "tokens": json.loads(row[5] or "{}")
+        }
+    return None
 
-# --- LOGGED IN UI ---
-st.sidebar.success(f"👋 Welcome, {st.session_state['user_name']}")
-if st.sidebar.button("Logout"):
-    for k in list(st.session_state.keys()):
-        del st.session_state[k]
-    st.experimental_rerun()
+def generate_verification_token(email):
+    token = secrets.token_hex(3)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT tokens FROM users WHERE email = ?", (email,))
+    result = c.fetchone()
+    tokens = json.loads(result[0]) if result and result[0] else {}
 
-if st.session_state["is_admin"]:
-    st.sidebar.markdown("🛠 **Admin Access Enabled**")
+    tokens["verification"] = {
+        "token": token,
+        "created_at": str(datetime.now())
+    }
 
-# --- APP FUNCTIONALITY ---
-st.markdown("### 🔍 Search a Stock")
-ticker = st.text_input("Enter stock ticker symbol (e.g., AAPL)", value="AAPL")
+    c.execute("UPDATE users SET tokens = ? WHERE email = ?", (json.dumps(tokens), email))
+    conn.commit()
+    conn.close()
+    logger.info(f"Verification token generated for {email}")
+    return token
 
-if ticker:
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.info("Fetching historical stock data...")
-        data = fetch_stock_data(ticker)
-        st.plotly_chart(create_interactive_chart(data), use_container_width=True)
-        st.plotly_chart(plot_volatility(data), use_container_width=True)
+def verify_email_token(email, token_input):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT tokens FROM users WHERE email = ?", (email,))
+    result = c.fetchone()
+    if not result:
+        conn.close()
+        return False
 
-    with col2:
-        st.info("Predicting future prices...")
-        predicted_df = predict_future_prices(data)
-        st.dataframe(predicted_df)
+    tokens = json.loads(result[0] or "{}")
+    token_data = tokens.get("verification")
 
-    st.markdown("---")
-    st.subheader("📰 Latest Financial News & AI Insights")
-    news = news_analyzer.fetch_financial_news(ticker)
-    display_news_with_insights(news)
+    if not token_data:
+        conn.close()
+        return False
 
-    st.markdown("---")
-    st.subheader("📊 Recommendation Engine")
-    trader = TradingEngine(username=st.session_state["user_email"])
-    recommendation = trader.generate_recommendation(data, news)
-    st.metric("📌 Recommendation", recommendation)
+    token = token_data["token"]
+    created_at = datetime.fromisoformat(token_data["created_at"])
+
+    if token_input == token and datetime.now() - created_at < timedelta(minutes=30):
+        # Mark as verified
+        c.execute("UPDATE users SET verified = ?, tokens = ? WHERE email = ?", (True, json.dumps({}), email))
+        conn.commit()
+        conn.close()
+        logger.info(f"User verified: {email}")
+        return True
+
+    conn.close()
+    return False
+
+def initiate_password_reset(email):
+    token = secrets.token_hex(4)
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT tokens FROM users WHERE email = ?", (email,))
+    result = c.fetchone()
+    tokens = json.loads(result[0]) if result and result[0] else {}
+
+    tokens["reset"] = {
+        "token": token,
+        "created_at": str(datetime.now())
+    }
+
+    c.execute("UPDATE users SET tokens = ? WHERE email = ?", (json.dumps(tokens), email))
+    conn.commit()
+    conn.close()
+
+    send_email(email, "Password Reset Token", f"Use this token to reset your password: {token}")
+    logger.info(f"Password reset token sent to {email}")
+    return token
+
+def complete_password_reset(email, token_input, new_password):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT tokens FROM users WHERE email = ?", (email,))
+    result = c.fetchone()
+    if not result:
+        conn.close()
+        return False
+
+    tokens = json.loads(result[0] or "{}")
+    token_data = tokens.get("reset")
+    if not token_data:
+        conn.close()
+        return False
+
+    token = token_data["token"]
+    created_at = datetime.fromisoformat(token_data["created_at"])
+
+    if token_input == token and datetime.now() - created_at < timedelta(minutes=30):
+        # Update password
+        hashed = hash_password(new_password)
+        tokens.pop("reset")
+        c.execute("UPDATE users SET password = ?, tokens = ? WHERE email = ?", (hashed, json.dumps(tokens), email))
+        conn.commit()
+        conn.close()
+        logger.info(f"Password reset successful for {email}")
+        return True
+
+    conn.close()
+    return False
