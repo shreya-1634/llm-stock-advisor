@@ -22,7 +22,7 @@ from auths.auth import (
 )
 
 logger = get_logger(__name__)
-
+email_conf = st.secrets["email"]
 # ====================
 # 🌐 Streamlit UI App
 # ====================
