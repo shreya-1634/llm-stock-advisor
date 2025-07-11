@@ -126,6 +126,14 @@ elif menu == "Dashboard":
     else:
         st.success(f"Welcome {user['username']}!")
 
+        # Period selector (Google Finance style)
+        st.sidebar.subheader("📅 Time Range")
+        period_label = st.sidebar.selectbox(
+            "Choose a time range",
+            options=list(yf_config.keys()),
+            index=2  # Default: "1 Month"
+        )
+
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
 
         if st.button("Fetch Data") and ticker:
@@ -133,11 +141,13 @@ elif menu == "Dashboard":
             df = fetch_stock_data(ticker, period_label)
 
             if not df.empty:
+                st.success("✅ Data fetched successfully.")
                 st.plotly_chart(create_interactive_chart(df, ticker))
                 st.plotly_chart(plot_rsi(df))
                 st.plotly_chart(plot_macd(df))
             else:
-                st.warning("❌ No data available for the selected ticker and period.")
+                st.warning("❌ No data available for the selected ticker and time range.")
+
 
 # --------------------------
 # Logout
