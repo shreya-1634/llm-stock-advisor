@@ -126,29 +126,6 @@ elif menu == "Dashboard":
     else:
         st.success(f"Welcome {user['username']}!")
 
-        # Period selector like Google Finance
-        st.sidebar.subheader("📅 Time Range")
-        yf_config = {
-            "1 Day": None,
-            "5 Days": None,
-            "1 Week": None,
-            "1 Month": None,
-            "3 Months": None,
-            "6 Months": None,
-            "1 Year": None,
-            "2 Years": None,
-            "5 Years": None,
-            "10 Years": None,
-            "Year to Date": None,
-            "Max": None,
-        }
-
-        period_label = st.sidebar.selectbox(
-            "Choose a time range",
-            options=list(yf_config.keys()),
-            index=3  # Default to "1 Month"
-        )
-
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
 
         if st.button("Fetch Data") and ticker:
