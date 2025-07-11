@@ -1,23 +1,6 @@
-# Core
 streamlit>=1.30.0
+yfinance>=0.2.33
 pandas>=1.5.0
 numpy>=1.21.0
-
-# Plotting
 plotly>=5.11.0
-
-# Finance API
-yfinance>=0.2.33
-
-# Email
-smtplib  # Note: comes built-in with Python, no need to pip install
 email-validator
-
-# Security
-bcrypt
-
-# Logging & Others
-python-dotenv
-
-# Optional: for working with datetime/timezones
-pytz
