@@ -1,114 +1,147 @@
 import streamlit as st
+import sqlite3
+import hashlib
+import secrets
+import json
+from datetime import datetime, timedelta
+
+from core.config import get_logger
+from core.visualization import create_interactive_chart, plot_rsi, plot_macd
+from core.data_fetcher import fetch_stock_data
 from auths.auth import (
-    authenticate_user,
     register_user,
+    authenticate_user,
     verify_email,
     initiate_password_reset,
     complete_password_reset,
     logout_user,
-    get_logged_in_user
+    get_logged_in_user,
 )
-from core.visualization import (
-    create_interactive_chart, 
-    plot_rsi, 
-    plot_macd
-)
-from core.data_fetcher import fetch_stock_data
 
+logger = get_logger(__name__)
+DB_FILE = "users.db"
 
 # --------------------------
-# Streamlit App Interface
+# Auth Helper Functions
 # --------------------------
-st.set_page_config(page_title="Stock Dashboard", layout="wide")
-st.title("📊 LLM Stock Advisor")
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # --------------------------
-# User Login/Register Logic
+# Streamlit App UI
 # --------------------------
-menu = st.sidebar.selectbox("Menu", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"])
+st.set_page_config(page_title="LLM Stock Advisor", layout="wide")
 
-# --------------------------------------
-# SESSION STATE: user
-# --------------------------------------
-if "user" not in st.session_state:
+st.title("📈 LLM Stock Advisor")
+
+if 'user' not in st.session_state:
     st.session_state.user = None
 
+menu = st.sidebar.radio("🔧 Navigation", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"])
+
+# --------------------------
+# Period Selector (Global)
+# --------------------------
+st.sidebar.subheader("📅 Select Time Period")
+period = st.sidebar.selectbox(
+    "Choose a time range",
+    options=["7d", "30d", "90d", "180d", "365d"],
+    index=1,
+    format_func=lambda x: {
+        "7d": "Last 7 Days",
+        "30d": "Last 30 Days",
+        "90d": "Last 3 Months",
+        "180d": "Last 6 Months",
+        "365d": "Last 1 Year"
+    }[x]
+)
+
+# --------------------------
+# Register
+# --------------------------
 if menu == "Register":
-    st.subheader("Create an Account")
+    st.subheader("👤 Register New User")
     username = st.text_input("Username")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
-
     if st.button("Register"):
         success, msg = register_user(username, email, password)
-        if success:
-            st.success(msg)
-        else:
-            st.error(msg)
+        st.success(msg) if success else st.error(msg)
 
-elif menu == "Verify Email":
-    st.subheader("Verify Email")
-    email = st.text_input("Registered Email")
-    token = st.text_input("Verification Token")
-
-    if st.button("Verify"):
-        if verify_email(email, token):
-            st.success("Email verified successfully!")
-        else:
-            st.error("Invalid or expired token.")
-
-elif menu == "Reset Password":
-    st.subheader("Reset Password")
-    email = st.text_input("Registered Email")
-
-    if st.button("Send Reset Token"):
-        initiate_password_reset(email)
-        st.info("Check your email for the reset token.")
-
-    reset_token = st.text_input("Reset Token")
-    new_pass = st.text_input("New Password", type="password")
-
-    if st.button("Reset Password"):
-        if complete_password_reset(email, reset_token, new_pass):
-            st.success("Password reset successfully!")
-        else:
-            st.error("Invalid or expired token.")
-
+# --------------------------
+# Login
+# --------------------------
 elif menu == "Login":
-    st.subheader("Login")
+    st.subheader("🔐 Login")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         user = authenticate_user(email, password)
         if user:
-            st.session_state.user = user  # ✅ Store login state
+            st.session_state.user = user
             st.success(f"Welcome {user['username']}!")
         else:
             st.error("Invalid credentials or email not verified.")
 
-elif menu == "Logout":
-    logout_user()
-    st.success("Logged out successfully.")
+# --------------------------
+# Email Verification
+# --------------------------
+elif menu == "Verify Email":
+    st.subheader("📨 Email Verification")
+    email = st.text_input("Registered Email")
+    token = st.text_input("Verification Token")
+    if st.button("Verify"):
+        if verify_email(email, token):
+            st.success("✅ Email verified successfully!")
+        else:
+            st.error("❌ Invalid or expired token.")
 
 # --------------------------
-# Dashboard after login
+# Password Reset
+# --------------------------
+elif menu == "Reset Password":
+    st.subheader("🔑 Password Reset")
+    stage = st.radio("Stage", ["Send Reset Token", "Reset with Token"])
+    email = st.text_input("Email")
+    if stage == "Send Reset Token":
+        if st.button("Send Reset Email"):
+            initiate_password_reset(email)
+            st.info("Reset token sent to your email.")
+    else:
+        token = st.text_input("Reset Token")
+        new_password = st.text_input("New Password", type="password")
+        if st.button("Reset Password"):
+            if complete_password_reset(email, token, new_password):
+                st.success("Password reset successful.")
+            else:
+                st.error("Invalid or expired reset token.")
+
+# --------------------------
+# Dashboard
 # --------------------------
 elif menu == "Dashboard":
     user = get_logged_in_user()
-
-    if user:
-        st.subheader(f"Welcome, {user['username']}!")
-        ticker = st.text_input("Enter stock ticker (e.g., AAPL, TSLA)")
-        period = st.selectbox("Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"])
-
-        if st.button("Fetch Data"):
-            df = fetch_stock_data(ticker, period=period)
-            if df is not None:
-                st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
-                st.plotly_chart(plot_rsi(df), use_container_width=True)
-                st.plotly_chart(plot_macd(df), use_container_width=True)
-            else:
-                st.error("Failed to fetch data.")
+    if not user:
+        st.warning("⚠️ Please login to fetch data of any ticker.")
     else:
-        st.warning("Please login to fetch data of any ticker.")
+        st.success(f"Welcome {user['username']}!")
+
+        ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
+        source = st.selectbox("Data Source", ["alpha_vantage", "finnhub"], index=0)
+
+        if st.button("Fetch Data") and ticker:
+            df = fetch_stock_data(ticker, period=period, source=source)
+
+            if not df.empty:
+                st.plotly_chart(create_interactive_chart(df, ticker))
+                st.plotly_chart(plot_rsi(df))
+                st.plotly_chart(plot_macd(df))
+            else:
+                st.warning("❌ No data available for the selected ticker and period.")
+
+# --------------------------
+# Logout
+# --------------------------
+elif menu == "Logout":
+    logout_user()
+    st.success("✅ Logged out successfully.")
