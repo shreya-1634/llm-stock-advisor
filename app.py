@@ -98,7 +98,6 @@ elif menu == "Reset Password":
 # ---------------- Dashboard ----------------
 from core.data_fetcher import fetch_stock_data
 from core.visualization import create_interactive_chart, plot_macd, plot_rsi
-from core.news_analyzer import display_news_with_insights
 
 elif menu == "Dashboard":
     user = get_logged_in_user()
@@ -130,16 +129,6 @@ elif menu == "Dashboard":
                 st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
                 st.plotly_chart(plot_rsi(df), use_container_width=True)
                 st.plotly_chart(plot_macd(df), use_container_width=True)
-
-                # 📰 News + Sentiment
-                st.subheader("📰 Recent News & Insights")
-                news_data = display_news_with_insights(ticker)
-                if news_data:
-                    for title, sentiment, score in news_data:
-                        st.markdown(f"**🗞️ {title}**")
-                        st.info(f"**Sentiment:** {sentiment} | **Confidence:** {score}")
-                else:
-                    st.warning("No recent news found.")
             else:
                 st.warning("❌ No data available for the selected ticker and period.")
 
