@@ -126,34 +126,41 @@ elif menu == "Dashboard":
     else:
         st.success(f"Welcome {user['username']}!")
 
-        # 📅 Time Range selector like Google Finance
-        from core.data_fetcher import fetch_stock_data, yf_config
+        # Period selector like Google Finance
+        st.sidebar.subheader("📅 Time Range")
+        yf_config = {
+            "1 Day": None,
+            "5 Days": None,
+            "1 Week": None,
+            "1 Month": None,
+            "3 Months": None,
+            "6 Months": None,
+            "1 Year": None,
+            "2 Years": None,
+            "5 Years": None,
+            "10 Years": None,
+            "Year to Date": None,
+            "Max": None,
+        }
 
         period_label = st.sidebar.selectbox(
-            "📅 Choose a time range",
+            "Choose a time range",
             options=list(yf_config.keys()),
-            index=3,  # Default to "1 Month"
-            format_func=lambda x: x  # You can format labels if needed
+            index=3  # Default to "1 Month"
         )
 
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
 
         if st.button("Fetch Data") and ticker:
             st.info("📡 Fetching data...")
-            df = fetch_stock_data(ticker, label=period_label)
+            df = fetch_stock_data(ticker, period_label)
 
             if not df.empty:
-                st.subheader(f"📊 Price Chart for {ticker.upper()} ({period_label})")
-                st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
-
-                st.subheader("📉 RSI Indicator")
-                st.plotly_chart(plot_rsi(df), use_container_width=True)
-
-                st.subheader("📈 MACD Indicator")
-                st.plotly_chart(plot_macd(df), use_container_width=True)
+                st.plotly_chart(create_interactive_chart(df, ticker))
+                st.plotly_chart(plot_rsi(df))
+                st.plotly_chart(plot_macd(df))
             else:
                 st.warning("❌ No data available for the selected ticker and period.")
-
 
 # --------------------------
 # Logout
