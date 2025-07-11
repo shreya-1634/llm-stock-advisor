@@ -100,27 +100,44 @@ elif menu == "Reset Password":
 elif menu == "Dashboard":
     user = get_logged_in_user()
     if not user:
-        st.warning("⚠️ Please login to fetch data of any ticker.")
+        st.warning("⚠️ Please login to fetch data.")
     else:
         st.success(f"Welcome {user['username']}!")
 
+        # --- Ticker and Source ---
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
+        period = st.selectbox("📅 Select Time Range", ["1d", "5d", "1mo", "3mo", "6mo", "1y"], index=2)
+        interval = st.selectbox("⏰ Interval", ["1m", "5m", "15m", "1h", "1d"], index=4)
 
-        if st.button("Fetch Data") and ticker:
-            config = local_yf_config.get(period_label, {"period": "1mo", "interval": "1d"})
-            period = config["period"]
-            interval = config["interval"]
+        if st.button("📡 Fetch Data") and ticker:
+            st.info("Fetching stock data...")
 
-            st.info(f"📡 Fetching {period_label} data for {ticker}...")
-
+            from core.data_fetcher import fetch_stock_data
             df = fetch_stock_data(ticker, period=period, interval=interval)
 
             if not df.empty:
+                st.subheader("📊 Price Chart")
                 st.plotly_chart(create_interactive_chart(df, ticker))
+                st.subheader("📈 RSI Indicator")
                 st.plotly_chart(plot_rsi(df))
+                st.subheader("📉 MACD Indicator")
                 st.plotly_chart(plot_macd(df))
+
+                # --- News and Insights ---
+                from core.news_analyzer import news_analyzer, display_news_with_insights
+                st.subheader("📰 Latest Financial News")
+                news = news_analyzer.fetch_financial_news(ticker)
+                display_news_with_insights(news)
+
+                # --- Recommendation ---
+                from core.trading_engine import TradingEngine
+                st.subheader("🤖 AI Recommendation")
+                engine = TradingEngine(user["username"])
+                recommendation = engine.generate_recommendation(df, news)
+                st.write(f"### {recommendation}")
+
             else:
-                st.warning("❌ No data available for the selected ticker and period.")
+                st.warning("❌ No data available for this ticker and selected time period.")
 
 # ---------------- Logout ----------------
 elif menu == "Logout":
