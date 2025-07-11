@@ -18,47 +18,35 @@ class TradingEngine:
         self.trade_history = []
         logger.info(f"Trading engine initialized for {username}")
 
-    def generate_recommendation(self, stock_data, news_articles=None):
-        if stock_data.empty:
-            return "NO DATA"
+    
+    def generate_recommendation(self, data: pd.DataFrame, news: list):
+        if data.empty:
+            return "HOLD"
 
-        current_price = stock_data['Close'].iloc[-1]
-        ma_20 = stock_data['Close'].rolling(window=20).mean().iloc[-1]
-        ma_50 = stock_data['Close'].rolling(window=50).mean().iloc[-1]
+        price = data["Close"].iloc[-1]
+        ma20 = data["Close"].rolling(20).mean().iloc[-1]
+        ma50 = data["Close"].rolling(50).mean().iloc[-1]
 
-        delta = stock_data['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        delta = data["Close"].diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = -delta.clip(upper=0).rolling(14).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs.iloc[-1]))
 
-        sentiment_score = 0
-        if news_articles:
-            positive = sum(1 for a in news_articles if a['sentiment'] == 'positive')
-            negative = sum(1 for a in news_articles if a['sentiment'] == 'negative')
-            sentiment_score = (positive - negative) / len(news_articles) if news_articles else 0
+        sentiment = 0
+        if news:
+            pos = sum(1 for a in news if a["sentiment"] == "POSITIVE")
+            neg = sum(1 for a in news if a["sentiment"] == "NEGATIVE")
+            sentiment = (pos - neg) / len(news)
 
-        recommendation = "HOLD"
+        buy = price > ma20 > ma50 and rsi < 70 and sentiment > 0.2
+        sell = price < ma20 < ma50 and rsi > 30 and sentiment < -0.2
 
-        buy_signals = [
-            current_price > ma_20 > ma_50,
-            rsi < 70,
-            sentiment_score > 0.2
-        ]
-
-        sell_signals = [
-            current_price < ma_20 < ma_50,
-            rsi > 30,
-            sentiment_score < -0.2
-        ]
-
-        if all(buy_signals):
-            recommendation = "BUY"
-        elif all(sell_signals):
-            recommendation = "SELL"
-
-        logger.info(f"Recommendation for {self.username}: {recommendation}")
-        return recommendation
+        if buy:
+            return "BUY"
+        if sell:
+            return "SELL"
+        return "HOLD"
 
     def execute_trade(self, action, ticker, quantity, price=None):
         if "authenticated" not in st.session_state or not st.session_state["authenticated"]:
