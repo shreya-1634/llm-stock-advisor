@@ -3,46 +3,53 @@ import hashlib
 import secrets
 import json
 from datetime import datetime, timedelta
+from core.config import get_logger
 import smtplib
 from email.mime.text import MIMEText
 import streamlit as st
-from core.config import get_logger
-from core.config import get_email_config
+import os
 
 logger = get_logger(__name__)
 DB_FILE = "users.db"
 
-# -------------------------
-# Helper Functions
-# -------------------------
+# ------------------------------------
+# Hashing & Verification Utilities
+# ------------------------------------
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def verify_password(password, hashed):
     return hash_password(password) == hashed
 
+# ------------------------------------
+# Email Sender
+# ------------------------------------
 def send_email(to, subject, body):
     try:
-        config = get_email_config()
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        sender_email = os.getenv("EMAIL")
+        sender_password = os.getenv("EMAIL_PASSWORD")
+
         msg = MIMEText(body)
         msg["Subject"] = subject
-        msg["From"] = config["email"]
+        msg["From"] = sender_email
         msg["To"] = to
 
-        with smtplib.SMTP(config["smtp_server"], int(config["smtp_port"])) as server:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
-            server.login(config["email"], config["password"])
+            server.login(sender_email, sender_password)
             server.send_message(msg)
 
         logger.info(f"Email sent to {to}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
+        logger.error(f"Failed to send email: {e}")
         return False
 
-# -------------------------
-# Auth Functions
-# -------------------------
+# ------------------------------------
+# User Registration
+# ------------------------------------
 def register_user(username, email, password):
     try:
         hashed = hash_password(password)
@@ -54,18 +61,24 @@ def register_user(username, email, password):
         """, (username, email, hashed, False, json.dumps({}), json.dumps({})))
         conn.commit()
         conn.close()
+
+        token = generate_verification_token(email)
+        send_email(email, "Verify your email", f"Your verification token is: {token}")
         logger.info(f"User registered: {username}")
-        send_email(email, "Verify your email", f"Your verification token is: {generate_verification_token(email)}")
         return True, "User registered successfully. Verification email sent."
     except sqlite3.IntegrityError:
         return False, "Email already registered."
 
+# ------------------------------------
+# User Authentication
+# ------------------------------------
 def authenticate_user(email, password):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE email = ?", (email,))
     row = c.fetchone()
     conn.close()
+
     if row and verify_password(password, row[2]):
         if not bool(row[3]):
             return None  # Not verified
@@ -78,6 +91,9 @@ def authenticate_user(email, password):
         }
     return None
 
+# ------------------------------------
+# Verification Token Generation
+# ------------------------------------
 def generate_verification_token(email):
     token = secrets.token_hex(3)
     conn = sqlite3.connect(DB_FILE)
@@ -85,10 +101,12 @@ def generate_verification_token(email):
     c.execute("SELECT tokens FROM users WHERE email = ?", (email,))
     result = c.fetchone()
     tokens = json.loads(result[0]) if result and result[0] else {}
+
     tokens["verification"] = {
         "token": token,
         "created_at": str(datetime.now())
     }
+
     c.execute("UPDATE users SET tokens = ? WHERE email = ?", (json.dumps(tokens), email))
     conn.commit()
     conn.close()
@@ -106,14 +124,12 @@ def verify_email(email, token_input):
 
     tokens = json.loads(result[0] or "{}")
     token_data = tokens.get("verification")
-
     if not token_data:
         conn.close()
         return False
 
     token = token_data["token"]
     created_at = datetime.fromisoformat(token_data["created_at"])
-
     if token_input == token and datetime.now() - created_at < timedelta(minutes=30):
         c.execute("UPDATE users SET verified = ?, tokens = ? WHERE email = ?", (True, json.dumps({}), email))
         conn.commit()
@@ -124,6 +140,9 @@ def verify_email(email, token_input):
     conn.close()
     return False
 
+# ------------------------------------
+# Password Reset
+# ------------------------------------
 def initiate_password_reset(email):
     token = secrets.token_hex(4)
     conn = sqlite3.connect(DB_FILE)
@@ -156,14 +175,12 @@ def complete_password_reset(email, token_input, new_password):
 
     tokens = json.loads(result[0] or "{}")
     token_data = tokens.get("reset")
-
     if not token_data:
         conn.close()
         return False
 
     token = token_data["token"]
     created_at = datetime.fromisoformat(token_data["created_at"])
-
     if token_input == token and datetime.now() - created_at < timedelta(minutes=30):
         hashed = hash_password(new_password)
         tokens.pop("reset")
@@ -176,6 +193,9 @@ def complete_password_reset(email, token_input, new_password):
     conn.close()
     return False
 
+# ------------------------------------
+# Streamlit State Helpers
+# ------------------------------------
 def logout_user():
     if 'user' in st.session_state:
         del st.session_state.user
