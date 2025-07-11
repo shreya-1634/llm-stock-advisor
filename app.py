@@ -129,14 +129,17 @@ elif menu == "Dashboard":
         source = st.selectbox("Data Source", ["alpha_vantage", "finnhub"], index=0)
 
         if st.button("Fetch Data") and ticker:
-            df = fetch_stock_data(ticker, period=period, source=source)
+    st.info("📡 Fetching data...")
+    df = fetch_stock_data(ticker, period=period, source=source)
 
-            if not df.empty:
-                st.plotly_chart(create_interactive_chart(df, ticker))
-                st.plotly_chart(plot_rsi(df))
-                st.plotly_chart(plot_macd(df))
-            else:
-                st.warning("❌ No data available for the selected ticker and period.")
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        st.success("✅ Data fetched successfully!")
+        st.plotly_chart(create_interactive_chart(df, ticker))
+        st.plotly_chart(plot_rsi(df))
+        st.plotly_chart(plot_macd(df))
+    else:
+        st.warning("❌ No data available for the selected ticker and period.")
+
 
 # --------------------------
 # Logout
