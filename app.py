@@ -127,14 +127,12 @@ elif menu == "Dashboard":
         st.success(f"Welcome {user['username']}!")
 
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
-        source = st.selectbox("Data Source", ["alpha_vantage", "finnhub"], index=0)
 
         if st.button("Fetch Data") and ticker:
             st.info("📡 Fetching data...")
-            df = fetch_stock_data(ticker, period=period, source=source)
+            df = fetch_stock_data(ticker, period=period)
 
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                st.success("✅ Data fetched successfully!")
+            if not df.empty:
                 st.plotly_chart(create_interactive_chart(df, ticker))
                 st.plotly_chart(plot_rsi(df))
                 st.plotly_chart(plot_macd(df))
