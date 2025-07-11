@@ -1,66 +1,65 @@
-import requests
 import pandas as pd
+import requests
+import os
+from core.config import get_logger
 from datetime import datetime, timedelta
-import streamlit as st
-from .config import get_logger
 
 logger = get_logger(__name__)
 
 def fetch_stock_data(ticker, period="30d", source="alpha_vantage"):
-    try:
-        if source == "alpha_vantage":
-            return fetch_from_alpha_vantage(ticker, period)
-        elif source == "finnhub":
-            return fetch_from_finnhub(ticker, period)
-        else:
-            raise ValueError("Unknown data source")
-    except Exception as e:
-        logger.error(f"Data fetch failed for {ticker}: {e}")
+    logger.info(f"Fetching {period} data for {ticker} using {source}")
+
+    if source == "alpha_vantage":
+        return fetch_from_alpha_vantage(ticker, period)
+    elif source == "finnhub":
+        return fetch_from_finnhub(ticker, period)
+    else:
+        logger.error(f"Unknown source: {source}")
         return pd.DataFrame()
 
-def fetch_from_alpha_vantage(ticker, period="30d"):
-    api_key = st.secrets["api_keys"]["alpha_vantage"]
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={api_key}"
+def fetch_from_alpha_vantage(ticker, period):
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&apikey={api_key}&outputsize=full"
+    r = requests.get(url)
 
-    response = requests.get(url)
-    data = response.json()
+    if r.status_code != 200 or "Time Series" not in r.text:
+        return pd.DataFrame()
 
-    if "Time Series (Daily)" not in data:
-        raise ValueError("Invalid response from Alpha Vantage")
+    try:
+        data = r.json()["Time Series (Daily)"]
+        df = pd.DataFrame.from_dict(data, orient="index", dtype=float)
+        df.index = pd.to_datetime(df.index)
+        df.columns = ["Open", "High", "Low", "Close", "Adj Close", "Volume", "Dividends", "Split Coefficient"]
+        df.sort_index(inplace=True)
 
-    df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index", dtype=float)
-    df.columns = ["Open", "High", "Low", "Close", "Adj Close", "Volume", "Dividend", "Split Coef"][:len(df.columns)]
-    df = df[["Open", "High", "Low", "Close"]]
-    df.index = pd.to_datetime(df.index)
-    df.sort_index(inplace=True)
+        days = int(period.replace("d", ""))
+        start = datetime.now() - timedelta(days=days)
+        return df[df.index >= start]
+    except Exception as e:
+        logger.error(f"Alpha Vantage Error: {e}")
+        return pd.DataFrame()
 
-    # Filter by period
-    days = int(period.replace("d", "")) if "d" in period else 30
-    start_date = datetime.now() - timedelta(days=days)
-    df = df[df.index >= start_date]
-
-    return df
-
-def fetch_from_finnhub(ticker, period="30d"):
-    api_key = st.secrets["api_keys"]["finnhub"]
-    days = int(period.replace("d", "")) if "d" in period else 30
+def fetch_from_finnhub(ticker, period):
+    api_key = os.getenv("FINNHUB_API_KEY")
+    days = int(period.replace("d", ""))
     end = int(datetime.now().timestamp())
     start = int((datetime.now() - timedelta(days=days)).timestamp())
-
     url = f"https://finnhub.io/api/v1/stock/candle?symbol={ticker}&resolution=D&from={start}&to={end}&token={api_key}"
+    r = requests.get(url)
 
-    response = requests.get(url)
-    data = response.json()
+    try:
+        data = r.json()
+        if data.get("s") != "ok":
+            return pd.DataFrame()
 
-    if data.get("s") != "ok":
-        raise ValueError("Invalid response from Finnhub")
-
-    df = pd.DataFrame({
-        "Open": data["o"],
-        "High": data["h"],
-        "Low": data["l"],
-        "Close": data["c"],
-    }, index=pd.to_datetime(data["t"], unit="s"))
-
-    df.sort_index(inplace=True)
-    return df
+        df = pd.DataFrame({
+            "Open": data["o"],
+            "High": data["h"],
+            "Low": data["l"],
+            "Close": data["c"],
+            "Volume": data["v"]
+        }, index=pd.to_datetime(data["t"], unit="s"))
+        return df
+    except Exception as e:
+        logger.error(f"Finnhub Error: {e}")
+        return pd.DataFrame()
