@@ -22,21 +22,20 @@ logger = get_logger(__name__)
 DB_FILE = "users.db"
 
 # --------------------------
-# Auth Helper Functions
-# --------------------------
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# --------------------------
-# Streamlit App UI
+# Streamlit Page Config
 # --------------------------
 st.set_page_config(page_title="LLM Stock Advisor", layout="wide")
-
 st.title("📈 LLM Stock Advisor")
 
-if 'user' not in st.session_state:
+# --------------------------
+# Session Initialization
+# --------------------------
+if "user" not in st.session_state:
     st.session_state.user = None
 
+# --------------------------
+# Sidebar Navigation
+# --------------------------
 menu = st.sidebar.radio("🔧 Navigation", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"])
 
 # --------------------------
@@ -79,9 +78,9 @@ elif menu == "Login":
         user = authenticate_user(email, password)
         if user:
             st.session_state.user = user
-            st.success(f"Welcome {user['username']}!")
+            st.success(f"✅ Welcome {user['username']}!")
         else:
-            st.error("Invalid credentials or email not verified.")
+            st.error("❌ Invalid credentials or email not verified.")
 
 # --------------------------
 # Email Verification
@@ -106,15 +105,15 @@ elif menu == "Reset Password":
     if stage == "Send Reset Token":
         if st.button("Send Reset Email"):
             initiate_password_reset(email)
-            st.info("Reset token sent to your email.")
+            st.info("📨 Reset token sent to your email.")
     else:
         token = st.text_input("Reset Token")
         new_password = st.text_input("New Password", type="password")
         if st.button("Reset Password"):
             if complete_password_reset(email, token, new_password):
-                st.success("Password reset successful.")
+                st.success("✅ Password reset successful.")
             else:
-                st.error("Invalid or expired reset token.")
+                st.error("❌ Invalid or expired reset token.")
 
 # --------------------------
 # Dashboard
@@ -124,7 +123,7 @@ elif menu == "Dashboard":
     if not user:
         st.warning("⚠️ Please login to fetch data of any ticker.")
     else:
-        st.success(f"Welcome {user['username']}!")
+        st.success(f"👋 Welcome {user['username']}!")
 
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
         source = st.selectbox("Data Source", ["alpha_vantage", "finnhub"], index=0)
