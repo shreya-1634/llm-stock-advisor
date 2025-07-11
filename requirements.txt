@@ -3,7 +3,6 @@ pandas>=1.5.0
 numpy>=1.21.0
 plotly>=5.11.0
 yfinance>=0.2.33
-openai
+transformers>=4.40.0
+torch>=2.0.0
 requests
-transformers
-torch            # Required for transformer pipelines
