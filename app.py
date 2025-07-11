@@ -1,7 +1,7 @@
 import streamlit as st
 from auths.auth import (
-    register_user,
     authenticate_user,
+    register_user,
     verify_email,
     initiate_password_reset,
     complete_password_reset,
@@ -9,40 +9,36 @@ from auths.auth import (
     get_logged_in_user
 )
 from core.visualization import (
-    create_interactive_chart,
-    plot_rsi,
+    create_interactive_chart, 
+    plot_rsi, 
     plot_macd
 )
 from core.data_fetcher import fetch_stock_data
 
-st.set_page_config(page_title="Stock Advisor", layout="wide")
 
-# ========== Session Handling ==========
-user = get_logged_in_user()
+# --------------------------
+# Streamlit App Interface
+# --------------------------
+st.set_page_config(page_title="Stock Dashboard", layout="wide")
+st.title("📊 LLM Stock Advisor")
 
-# ========== Sidebar Navigation ==========
-st.sidebar.title("🔐 Authentication")
-menu = st.sidebar.radio("Navigate", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard"])
+# --------------------------
+# User Login/Register Logic
+# --------------------------
+menu = st.sidebar.selectbox("Menu", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"])
 
-# ========== Login ==========
-if menu == "Login":
-    st.title("🔑 Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        user = authenticate_user(email, password)
-        if user:
-            st.session_state.user = user
-            st.success(f"Welcome back, {user['username']}!")
-        else:
-            st.error("Login failed. Make sure you're verified.")
+# --------------------------------------
+# SESSION STATE: user
+# --------------------------------------
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-# ========== Register ==========
-elif menu == "Register":
-    st.title("📝 Register")
+if menu == "Register":
+    st.subheader("Create an Account")
     username = st.text_input("Username")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
+
     if st.button("Register"):
         success, msg = register_user(username, email, password)
         if success:
@@ -50,54 +46,69 @@ elif menu == "Register":
         else:
             st.error(msg)
 
-# ========== Verify Email ==========
 elif menu == "Verify Email":
-    st.title("📧 Verify Email")
-    email = st.text_input("Email")
+    st.subheader("Verify Email")
+    email = st.text_input("Registered Email")
     token = st.text_input("Verification Token")
+
     if st.button("Verify"):
         if verify_email(email, token):
             st.success("Email verified successfully!")
         else:
-            st.error("Verification failed or token expired.")
+            st.error("Invalid or expired token.")
 
-# ========== Reset Password ==========
 elif menu == "Reset Password":
-    st.title("🔁 Reset Password")
-    sub_menu = st.radio("Step", ["Request Token", "Submit Token"])
-    if sub_menu == "Request Token":
-        email = st.text_input("Enter your email")
-        if st.button("Send Reset Token"):
-            initiate_password_reset(email)
-            st.success("Reset token sent to your email.")
-    else:
-        email = st.text_input("Email")
-        token = st.text_input("Reset Token")
-        new_password = st.text_input("New Password", type="password")
-        if st.button("Reset Password"):
-            if complete_password_reset(email, token, new_password):
-                st.success("Password reset successful.")
-            else:
-                st.error("Invalid token or expired.")
+    st.subheader("Reset Password")
+    email = st.text_input("Registered Email")
 
-# ========== Dashboard ==========
+    if st.button("Send Reset Token"):
+        initiate_password_reset(email)
+        st.info("Check your email for the reset token.")
+
+    reset_token = st.text_input("Reset Token")
+    new_pass = st.text_input("New Password", type="password")
+
+    if st.button("Reset Password"):
+        if complete_password_reset(email, reset_token, new_pass):
+            st.success("Password reset successfully!")
+        else:
+            st.error("Invalid or expired token.")
+
+elif menu == "Login":
+    st.subheader("Login")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        user = authenticate_user(email, password)
+        if user:
+            st.session_state.user = user  # ✅ Store login state
+            st.success(f"Welcome {user['username']}!")
+        else:
+            st.error("Invalid credentials or email not verified.")
+
+elif menu == "Logout":
+    logout_user()
+    st.success("Logged out successfully.")
+
+# --------------------------
+# Dashboard after login
+# --------------------------
 elif menu == "Dashboard":
-    if not user:
-        st.warning("Please log in to access the dashboard.")
-    else:
-        st.sidebar.success(f"Logged in as {user['username']}")
-        if st.sidebar.button("Logout"):
-            logout_user()
-            st.experimental_rerun()
+    user = get_logged_in_user()
 
-        st.title("📊 Stock Dashboard")
+    if user:
+        st.subheader(f"Welcome, {user['username']}!")
+        ticker = st.text_input("Enter stock ticker (e.g., AAPL, TSLA)")
+        period = st.selectbox("Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"])
 
-        ticker = st.text_input("Enter Stock Ticker (e.g. AAPL)", "AAPL")
         if st.button("Fetch Data"):
-            data = fetch_stock_data(ticker)
-            if data is not None:
-                st.plotly_chart(create_interactive_chart(data, ticker), use_container_width=True)
-                st.plotly_chart(plot_rsi(data), use_container_width=True)
-                st.plotly_chart(plot_macd(data), use_container_width=True)
+            df = fetch_stock_data(ticker, period=period)
+            if df is not None:
+                st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
+                st.plotly_chart(plot_rsi(df), use_container_width=True)
+                st.plotly_chart(plot_macd(df), use_container_width=True)
             else:
-                st.error("Failed to fetch data for given ticker.")
+                st.error("Failed to fetch data.")
+    else:
+        st.warning("Please login to fetch data of any ticker.")
