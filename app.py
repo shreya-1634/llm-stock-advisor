@@ -124,22 +124,22 @@ elif menu == "Dashboard":
     if not user:
         st.warning("⚠️ Please login to fetch data of any ticker.")
     else:
-        st.success(f"👋 Welcome {user['username']}!")
+        st.success(f"Welcome {user['username']}!")
 
         ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
         source = st.selectbox("Data Source", ["alpha_vantage", "finnhub"], index=0)
 
         if st.button("Fetch Data") and ticker:
-    st.info("📡 Fetching data...")
-    df = fetch_stock_data(ticker, period=period, source=source)
+            st.info("📡 Fetching data...")
+            df = fetch_stock_data(ticker, period=period, source=source)
 
-    if isinstance(df, pd.DataFrame) and not df.empty:
-        st.success("✅ Data fetched successfully!")
-        st.plotly_chart(create_interactive_chart(df, ticker))
-        st.plotly_chart(plot_rsi(df))
-        st.plotly_chart(plot_macd(df))
-    else:
-        st.warning("❌ No data available for the selected ticker and period.")
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                st.success("✅ Data fetched successfully!")
+                st.plotly_chart(create_interactive_chart(df, ticker))
+                st.plotly_chart(plot_rsi(df))
+                st.plotly_chart(plot_macd(df))
+            else:
+                st.warning("❌ No data available for the selected ticker and period.")
 
 
 # --------------------------
