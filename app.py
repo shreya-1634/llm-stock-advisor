@@ -124,7 +124,7 @@ elif menu == "Dashboard":
                 st.plotly_chart(plot_macd(df))
 
                 # --- News and Insights ---
-                from core.news_analyzer import news_analyzer, display_news_with_insights
+                from core.news_analyzer import display_news_with_insights
                 st.subheader("📰 Latest Financial News")
                 news = news_analyzer.fetch_financial_news(ticker)
                 display_news_with_insights(news)
