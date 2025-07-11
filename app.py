@@ -4,7 +4,6 @@ import hashlib
 from datetime import datetime
 
 from core.visualization import create_interactive_chart, plot_rsi, plot_macd
-from core.data_fetcher import fetch_stock_data
 from auths.auth import (
     register_user,
     authenticate_user,
@@ -97,47 +96,53 @@ elif menu == "Reset Password":
                 st.error("Invalid or expired reset token.")
 
 # ---------------- Dashboard ----------------
+from core.data_fetcher import fetch_stock_data
+from core.visualization import create_interactive_chart, plot_macd, plot_rsi
+from core.news_analyzer import display_news_with_insights
+
 elif menu == "Dashboard":
     user = get_logged_in_user()
     if not user:
-        st.warning("⚠️ Please login to fetch data.")
+        st.warning("⚠️ Please login to access the dashboard.")
     else:
         st.success(f"Welcome {user['username']}!")
 
-        # --- Ticker and Source ---
-        ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
-        period = st.selectbox("📅 Select Time Range", ["1d", "5d", "1mo", "3mo", "6mo", "1y"], index=2)
-        interval = st.selectbox("⏰ Interval", ["1m", "5m", "15m", "1h", "1d"], index=4)
+        ticker = st.text_input("🔎 Enter Stock Ticker (e.g., AAPL, TSLA)")
+        
+        # Time period selection like Google Finance
+        yf_config = {
+            "1 Day": ("1d", "5m"),
+            "5 Days": ("5d", "15m"),
+            "1 Month": ("1mo", "30m"),
+            "3 Months": ("3mo", "1h"),
+            "6 Months": ("6mo", "1h"),
+            "1 Year": ("1y", "1d"),
+            "5 Years": ("5y", "1wk"),
+            "Max": ("max", "1mo")
+        }
 
-        if st.button("📡 Fetch Data") and ticker:
-            st.info("Fetching stock data...")
+        period_label = st.selectbox("📅 Choose Time Range", list(yf_config.keys()), index=2)
+        period, interval = yf_config[period_label]
 
-            from core.data_fetcher import fetch_stock_data
+        if st.button("📈 Fetch Data") and ticker:
             df = fetch_stock_data(ticker, period=period, interval=interval)
-
             if not df.empty:
-                st.subheader("📊 Price Chart")
-                st.plotly_chart(create_interactive_chart(df, ticker))
-                st.subheader("📈 RSI Indicator")
-                st.plotly_chart(plot_rsi(df))
-                st.subheader("📉 MACD Indicator")
-                st.plotly_chart(plot_macd(df))
+                st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
+                st.plotly_chart(plot_rsi(df), use_container_width=True)
+                st.plotly_chart(plot_macd(df), use_container_width=True)
 
-                # --- News and Insights ---
-                from core.news_analyzer import display_news_with_insights
-                st.subheader("📰 Latest Financial News")
-                news = news_analyzer.fetch_financial_news(ticker)
-                display_news_with_insights(news)
-
-                # --- Recommendation ---
-                from core.trading_engine import TradingEngine
-                st.subheader("🤖 AI Recommendation")
-                engine = TradingEngine(user["username"])
-                recommendation = engine.generate_recommendation(df, news)
-                st.write(f"### {recommendation}")
-
+                # 📰 News + Sentiment
+                st.subheader("📰 Recent News & Insights")
+                news_data = display_news_with_insights(ticker)
+                if news_data:
+                    for title, sentiment, score in news_data:
+                        st.markdown(f"**🗞️ {title}**")
+                        st.info(f"**Sentiment:** {sentiment} | **Confidence:** {score}")
+                else:
+                    st.warning("No recent news found.")
             else:
-                st.warning("❌ No data available for this ticker and selected time period.")
+                st.warning("❌ No data available for the selected ticker and period.")
+
 
 # ---------------- Logout ----------------
 elif menu == "Logout":
