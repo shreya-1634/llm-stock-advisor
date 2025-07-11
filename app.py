@@ -102,33 +102,25 @@ from core.visualization import create_interactive_chart, plot_macd, plot_rsi
 elif menu == "Dashboard":
     user = get_logged_in_user()
     if not user:
-        st.warning("⚠️ Please login to access the dashboard.")
+        st.warning("⚠️ Please login to fetch data of any ticker.")
     else:
         st.success(f"Welcome {user['username']}!")
 
-        ticker = st.text_input("🔎 Enter Stock Ticker (e.g., AAPL, TSLA)")
-        
-        # Time period selection like Google Finance
-        yf_config = {
-            "1 Day": ("1d", "5m"),
-            "5 Days": ("5d", "15m"),
-            "1 Month": ("1mo", "30m"),
-            "3 Months": ("3mo", "1h"),
-            "6 Months": ("6mo", "1h"),
-            "1 Year": ("1y", "1d"),
-            "5 Years": ("5y", "1wk"),
-            "Max": ("max", "1mo")
-        }
+        ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
 
-        period_label = st.selectbox("📅 Choose Time Range", list(yf_config.keys()), index=2)
-        period, interval = yf_config[period_label]
+        if st.button("Fetch Data") and ticker:
+            config = local_yf_config.get(period_label, {"period": "1mo", "interval": "1d"})
+            period = config["period"]
+            interval = config["interval"]
 
-        if st.button("📈 Fetch Data") and ticker:
+            st.info(f"📡 Fetching {period_label} data for {ticker}...")
+
             df = fetch_stock_data(ticker, period=period, interval=interval)
+
             if not df.empty:
-                st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
-                st.plotly_chart(plot_rsi(df), use_container_width=True)
-                st.plotly_chart(plot_macd(df), use_container_width=True)
+                st.plotly_chart(create_interactive_chart(df, ticker))
+                st.plotly_chart(plot_rsi(df))
+                st.plotly_chart(plot_macd(df))
             else:
                 st.warning("❌ No data available for the selected ticker and period.")
 
