@@ -116,9 +116,9 @@ elif menu == "Dashboard":
             df = fetch_stock_data(ticker, period=period, interval=interval)
 
             if not df.empty:
-                st.plotly_chart(create_interactive_chart(df, ticker))
-                st.plotly_chart(plot_rsi(df))
-                st.plotly_chart(plot_macd(df))
+                   st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
+                st.plotly_chart(plot_macd(df), use_container_width=True)
+            st.plotly_chart(plot_rsi(df), use_container_width=True)
             else:
                 st.warning("❌ No data available for the selected ticker and period.")
 
