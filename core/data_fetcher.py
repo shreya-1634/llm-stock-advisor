@@ -105,4 +105,9 @@ def fetch_stock_data(ticker, period="30d", source="alpha_vantage"):
     if df.empty:
         df = fetch_from_yfinance(ticker, period)
 
-    return df
+    if df.empty:
+        logger.warning(f"No data fetched for {ticker} from {source}, even after fallback.")
+    else:
+        logger.info(f"Successfully fetched data for {ticker} with {len(df)} rows.")
+        return df
+
