@@ -19,10 +19,10 @@ yf_config = {
 }
 
 def fetch_stock_data(ticker, label="1 Month"):
+    config = yf_config.get(label, {"period": "1mo", "interval": "30m"})
     try:
-        period, interval = yf_config.get(label, ("1mo", "1d"))
-        logger.info(f"Fetching {period} data for {ticker} with interval {interval}")
-        df = yf.download(ticker, period=period, interval=interval)
+        logger.info(f"Fetching data for {ticker} with {label}")
+        df = yf.download(ticker, period=config["period"], interval=config["interval"])
         df.dropna(inplace=True)
         return df
     except Exception as e:
