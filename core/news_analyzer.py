@@ -58,26 +58,48 @@ class NewsAnalyzer:
             logger.error(f"News fetch failed: {str(e)}")
             return []
 
-    def _analyze_article(self, article, ticker):
-        if not article.get('content'):
-            return None
+    def _enrich_article(self, art, ticker):
+        content = art["content"][:1500]
+        sentiment = "neutral"
+        score = 0.0
 
-        content = article['content'][:2000]  # Truncate to prevent token limits
-        
-        # Sentiment analysis
-        article['sentiment'] = 'neutral'
-        article['sentiment_score'] = 0.0
-        if self.sentiment_analyzer:
+        try:
+            from transformers import pipeline
+            from core.config import get_logger
+            pipe = pipeline("sentiment-analysis")
+            res = pipe(content[:512])[0]
+            sentiment = res["label"].lower()
+            score = res["score"]
+        except Exception as e:
+            logger.warning(f"Sentiment error: {e}")
+
+        insight = "AI insight unavailable"
+        if self.openai_client:
             try:
-                result = self.sentiment_analyzer(content[:512])[0]
-                article['sentiment'] = result['label'].lower()
-                article['sentiment_score'] = result['score']
+                resp = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a financial analyst."},
+                        {"role": "user", "content": f"News on {ticker}: {content}"}
+                    ],
+                    max_tokens=150,
+                    temperature=0.3
+                )
+                insight = resp.choices[0].message.content
             except Exception as e:
-                logger.warning(f"Sentiment analysis failed: {str(e)}")
+                logger.warning(f"OpenAI insight error: {e}")
 
-        # AI insight
-        article['ai_insight'] = self._get_ai_insight(content, ticker)
-        return article
+        return {
+            "title": art.get("title"),
+            "source": art.get("source", {}).get("name"),
+            "publishedAt": art.get("publishedAt"),
+            "description": art.get("description"),
+            "url": art.get("url"),
+            "sentiment": sentiment.upper(),
+            "sentiment_score": score,
+            "ai_insight": insight
+        }
+
 
     def _get_ai_insight(self, text, ticker):
         client = api_manager.get_openai()
