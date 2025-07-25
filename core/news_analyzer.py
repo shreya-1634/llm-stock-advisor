@@ -1,103 +1,60 @@
-import streamlit as st
-from newsapi import NewsApiClient
 import requests
-from transformers import pipeline
-import torch
 from datetime import datetime, timedelta
-from .config import get_logger
-from .api_manager import api_manager
+from bs4 import BeautifulSoup
+from transformers import pipeline
+import os
+from dotenv import load_dotenv
 
-logger = get_logger(__name__)
+load_dotenv()
 
-class NewsAnalyzer:
-    def __init__(self):
-        self.newsapi = api_manager.get_news_client()
-        self.sentiment = self._init_sentiment_analyzer()
-        self.openai = api_manager.get_openai()
-        logger.info("NewsAnalyzer initialized.")
+NEWS_API_KEY = os.getenv("492fa1e881394250b2eb012b0f162459")  # Get it from https://newsapi.org/
+sentiment_pipeline = pipeline("sentiment-analysis")
 
-    def _init_sentiment_analyzer(self):
-        try:
-            return pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english",
-                            device=0 if torch.cuda.is_available() else -1)
-        except Exception as e:
-            logger.warning(f"Sentiment pipeline init failed: {e}")
-            return None
+def fetch_news(ticker: str, max_articles: int = 10):
+    """
+    Fetches recent news articles for a ticker using NewsAPI.
+    If NewsAPI fails or rate limited, it tries Yahoo Finance RSS.
+    Returns list of (headline, url) tuples.
+    """
+    try:
+        url = f"https://newsapi.org/v2/everything?q={ticker}&sortBy=publishedAt&apiKey={NEWS_API_KEY}&pageSize={max_articles}"
+        response = requests.get(url)
+        data = response.json()
+        
+        if "articles" in data:
+            news = [(article["title"], article["url"]) for article in data["articles"]]
+            return news
+        else:
+            return fetch_news_from_yahoo(ticker, max_articles)
 
-    def fetch_news(self, ticker, days=7, max_articles=5):
-        if not self.newsapi:
-            logger.error("News API client not configured.")
-            return []
+    except Exception as e:
+        print(f"NewsAPI failed: {e}")
+        return fetch_news_from_yahoo(ticker, max_articles)
 
-        try:
-            from_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
-            articles = self.newsapi.get_everything(
-                q=ticker,
-                from_param=from_date,
-                language="en",
-                sort_by="relevancy",
-                page_size=max_articles
-            ).get("articles", [])
-            logger.info(f"Fetched {len(articles)} news for {ticker} since {from_date}")
-            enriched = [self._process_article(a, ticker) for a in articles if a.get("content")]
-            return enriched
-        except Exception as e:
-            logger.error(f"News fetch error: {e}")
-            return []
 
-    def _process_article(self, art, ticker):
-        content = art["content"][:1500]
-        sentiment = "NEUTRAL"
-        score = 0.0
-        if self.sentiment:
-            try:
-                res = self.sentiment(content[:512])[0]
-                sentiment = res["label"]
-                score = res["score"]
-            except Exception as e:
-                logger.warning(f"Sentiment analysis failed: {e}")
-        insight = self._get_ai_insight(content, ticker)
-        return {
-            "title": art.get("title"),
-            "source": art.get("source", {}).get("name"),
-            "publishedAt": art.get("publishedAt"),
-            "description": art.get("description"),
-            "url": art.get("url"),
-            "sentiment": sentiment,
-            "sentiment_score": score,
-            "ai_insight": insight
-        }
+def fetch_news_from_yahoo(ticker: str, max_articles: int = 10):
+    """
+    Fallback method: Fetches headlines from Yahoo Finance RSS Feed.
+    """
+    url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
+    res = requests.get(url)
+    soup = BeautifulSoup(res.content, features="xml")
+    items = soup.findAll("item")[:max_articles]
 
-    def _get_ai_insight(self, content, ticker):
-        if not self.openai:
-            return "AI analysis unavailable"
-        try:
-            resp = self.openai.chat.completions.create(
-                model=st.secrets.get("GPT_MODEL", "gpt-3.5-turbo"),
-                messages=[
-                    {"role": "system", "content": "You are a financial analyst."},
-                    {"role": "user", "content": f"Summarize: {content}"}
-                ],
-                max_tokens=150,
-                temperature=0.3
-            )
-            return resp.choices[0].message.content.strip()
-        except Exception as e:
-            logger.warning(f"OpenAI insight error: {e}")
-            return "AI insight unavailable"
+    news = [(item.title.text, item.link.text) for item in items]
+    return news
 
-    def display(self, articles):
-        if not articles:
-            st.warning("No recent news found for this ticker.")
-        for i, art in enumerate(articles):
-            with st.expander(f"{i+1}. {art['title']}", expanded=(i==0)):
-                cols = st.columns([1, 4])
-                cols[0].metric(
-                    "Sentiment", art["sentiment"], f"{art['sentiment_score']:.0%}"
-                )
-                cols[1].markdown(f"**Source:** {art['source']}  \n**Published:** {art['publishedAt']}")
-                st.write(art.get("description", "No description"))
-                st.write("**AI Insight:**"); st.write(art["ai_insight"])
-                st.markdown(f"[Read full article ↗]({art['url']})")
 
-news_analyzer = NewsAnalyzer()
+def analyze_sentiment(news_list):
+    """
+    Performs sentiment analysis on a list of (headline, url) tuples.
+    Returns overall sentiment score and individual article scores.
+    """
+    sentiments = []
+    for headline, url in news_list:
+        result = sentiment_pipeline(headline)[0]
+        score = result['score'] if result['label'] == 'POSITIVE' else -result['score']
+        sentiments.append((headline, url, score))
+
+    overall_sentiment = sum(score for _, _, score in sentiments) / len(sentiments) if sentiments else 0
+    return overall_sentiment, sentiments
