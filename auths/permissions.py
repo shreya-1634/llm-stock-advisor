@@ -1,83 +1,59 @@
-import sqlite3
 import json
-from datetime import datetime, timedelta
-from core.config import get_logger
+import os
 
-logger = get_logger(__name__)
-DB_PATH = "users.db"
+PERMISSIONS_FILE = "data/permissions.json"
 
-def request_permission(username, action, ticker, amount):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
+# Default permission structure
+DEFAULT_PERMISSIONS = {
+    "can_fetch_data": True,
+    "can_see_charts": True,
+    "can_view_indicators": True,
+    "can_view_news": True,
+    "can_predict_prices": True,
+    "can_view_volatility": True,
+    "can_get_recommendation": True,
+    "can_use_ai_trading": False  # Admin or Pro users only
+}
 
-        c.execute("SELECT permissions FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        permissions = json.loads(result[0]) if result and result[0] else {}
 
-        permission_id = f"{action}_{ticker}_{datetime.now().timestamp()}"
-        permissions[permission_id] = {
-            "action": action,
-            "ticker": ticker,
-            "amount": amount,
-            "requested_at": str(datetime.now()),
-            "expires_at": str(datetime.now() + timedelta(minutes=30)),
-            "granted": False
-        }
+def load_permissions():
+    if not os.path.exists(PERMISSIONS_FILE):
+        return {}
+    with open(PERMISSIONS_FILE, "r") as f:
+        return json.load(f)
 
-        c.execute("UPDATE users SET permissions = ? WHERE username = ?",
-                  (json.dumps(permissions), username))
-        conn.commit()
-        conn.close()
 
-        logger.info(f"Permission requested: {permission_id}")
-        return permission_id
-    except Exception as e:
-        logger.error(f"Permission request error: {str(e)}")
-        return None
+def save_permissions(permissions):
+    with open(PERMISSIONS_FILE, "w") as f:
+        json.dump(permissions, f, indent=4)
 
-def check_permission(permission_id):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
 
-        c.execute("SELECT permissions FROM users")
-        users = c.fetchall()
-        conn.close()
+def initialize_user_permissions(email):
+    permissions = load_permissions()
+    if email not in permissions:
+        permissions[email] = DEFAULT_PERMISSIONS
+        save_permissions(permissions)
 
-        for _, perm_json in users:
-            permissions = json.loads(perm_json)
-            if permission_id in permissions:
-                permission = permissions[permission_id]
-                if permission['granted'] and datetime.now() < datetime.fromisoformat(permission['expires_at']):
-                    return True
-        return False
-    except Exception as e:
-        logger.error(f"Check permission error: {str(e)}")
-        return False
 
-def grant_permission(username, permission_id):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
+def get_user_permissions(email):
+    permissions = load_permissions()
+    return permissions.get(email, DEFAULT_PERMISSIONS)
 
-        c.execute("SELECT permissions FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if not result:
-            return False
 
-        permissions = json.loads(result[0])
-        if permission_id in permissions:
-            permissions[permission_id]['granted'] = True
-            c.execute("UPDATE users SET permissions = ? WHERE username = ?",
-                      (json.dumps(permissions), username))
-            conn.commit()
-            conn.close()
-            logger.info(f"Permission granted: {permission_id}")
-            return True
+def update_user_permission(email, key, value):
+    permissions = load_permissions()
+    if email in permissions:
+        permissions[email][key] = value
+        save_permissions(permissions)
 
-        conn.close()
-        return False
-    except Exception as e:
-        logger.error(f"Grant permission error: {str(e)}")
-        return False
+
+def check_permission(email, permission_key):
+    user_permissions = get_user_permissions(email)
+    return user_permissions.get(permission_key, False)
+
+
+# For Streamlit UI or backend decisions
+def require_permission(email, permission_key, feature_name):
+    if not check_permission(email, permission_key):
+        return f"🚫 You do not have permission to use '{feature_name}'"
+    return None
