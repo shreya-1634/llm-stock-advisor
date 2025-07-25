@@ -1,113 +1,66 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-from datetime import datetime
-from .data_fetcher import get_current_price
-from .config import get_logger
+import logging
+from core.predictor import predict_price_and_volatility
+from core.news_analyzer import analyze_sentiment
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
-class TradingEngine:
-    def __init__(self, username):
-        if "authenticated" not in st.session_state or not st.session_state["authenticated"]:
-            st.warning("🔐 Please login to access trading engine.")
-            st.stop()
+def calculate_trading_decision(ticker: str, df, news_headlines, allow_ai_trade: bool = False):
+    """
+    Determines Buy/Sell/Hold recommendation and executes decision if allowed.
+    """
 
-        self.username = username
-        self.portfolio = {}
-        self.trade_history = []
-        logger.info(f"Trading engine initialized for {username}")
+    try:
+        # Get price prediction and volatility estimate
+        predicted_price, current_price, volatility = predict_price_and_volatility(ticker, df)
 
-    
-    def generate_recommendation(self, data: pd.DataFrame, news: list):
-        if data.empty:
-            return "HOLD"
+        # Sentiment from news headlines
+        sentiment_score = analyze_sentiment(news_headlines)
 
-        price = data["Close"].iloc[-1]
-        ma20 = data["Close"].rolling(20).mean().iloc[-1]
-        ma50 = data["Close"].rolling(50).mean().iloc[-1]
+        logger.info(f"[{ticker}] Predicted Price: {predicted_price:.2f}, "
+                    f"Current: {current_price:.2f}, Volatility: {volatility:.4f}, "
+                    f"Sentiment: {sentiment_score:.2f}")
 
-        delta = data["Close"].diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = -delta.clip(upper=0).rolling(14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs.iloc[-1]))
+        decision = "Hold"
 
-        sentiment = 0
-        if news:
-            pos = sum(1 for a in news if a["sentiment"] == "POSITIVE")
-            neg = sum(1 for a in news if a["sentiment"] == "NEGATIVE")
-            sentiment = (pos - neg) / len(news)
+        # Basic recommendation logic
+        price_diff_percent = ((predicted_price - current_price) / current_price) * 100
 
-        buy = price > ma20 > ma50 and rsi < 70 and sentiment > 0.2
-        sell = price < ma20 < ma50 and rsi > 30 and sentiment < -0.2
+        if price_diff_percent > 3 and sentiment_score > 0:
+            decision = "Buy"
+        elif price_diff_percent < -3 and sentiment_score < 0:
+            decision = "Sell"
+        else:
+            decision = "Hold"
 
-        if buy:
-            return "BUY"
-        if sell:
-            return "SELL"
-        return "HOLD"
+        action_executed = None
 
-    def execute_trade(self, action, ticker, quantity, price=None):
-        if "authenticated" not in st.session_state or not st.session_state["authenticated"]:
-            st.warning("🔐 Please login to execute trades.")
-            return False
+        if allow_ai_trade:
+            action_executed = execute_trade(decision, ticker)
+        else:
+            logger.info(f"AI recommends to: {decision}, but waiting for user permission.")
 
-        trade_id = f"{action}-{ticker}-{datetime.now().timestamp()}"
-        logger.info(f"Executing trade {trade_id}")
+        return {
+            "ticker": ticker,
+            "predicted_price": predicted_price,
+            "current_price": current_price,
+            "volatility": volatility,
+            "sentiment_score": sentiment_score,
+            "recommendation": decision,
+            "executed": action_executed
+        }
 
-        try:
-            if not price:
-                price = get_current_price(ticker)
+    except Exception as e:
+        logger.error(f"Error in trading decision for {ticker}: {str(e)}")
+        return {
+            "error": f"Could not evaluate decision for {ticker}"
+        }
 
-            trade_value = price * quantity
 
-            if action.upper() == "BUY":
-                if ticker in self.portfolio:
-                    self.portfolio[ticker]['quantity'] += quantity
-                    self.portfolio[ticker]['avg_price'] = (
-                        (self.portfolio[ticker]['avg_price'] * self.portfolio[ticker]['quantity'] + trade_value) /
-                        (self.portfolio[ticker]['quantity'] + quantity)
-                    )
-                else:
-                    self.portfolio[ticker] = {
-                        'quantity': quantity,
-                        'avg_price': price,
-                        'current_price': price
-                    }
+def execute_trade(decision: str, ticker: str):
+    """
+    Mock trading execution logic. In a real system, this would be a broker API call.
+    """
+    logger.info(f"[EXECUTING TRADE] Decision: {decision} on {ticker}")
 
-            elif action.upper() == "SELL":
-                if ticker in self.portfolio and self.portfolio[ticker]['quantity'] >= quantity:
-                    self.portfolio[ticker]['quantity'] -= quantity
-                    if self.portfolio[ticker]['quantity'] == 0:
-                        del self.portfolio[ticker]
-                else:
-                    logger.warning("❌ Insufficient holdings.")
-                    return False
-
-            self.trade_history.append({
-                'timestamp': datetime.now(),
-                'action': action,
-                'ticker': ticker,
-                'quantity': quantity,
-                'price': price,
-                'value': trade_value
-            })
-
-            logger.info(f"Trade {trade_id} executed.")
-            return True
-
-        except Exception as e:
-            logger.error(f"Trade execution failed: {str(e)}")
-            return False
-
-    def get_portfolio_value(self):
-        total_value = 0
-        for ticker, data in self.portfolio.items():
-            try:
-                current_price = get_current_price(ticker)
-                total_value += current_price * data['quantity']
-            except Exception as e:
-                logger.warning(f"Error valuing {ticker}: {str(e)}")
-                continue
-        return total_value
+    # Simulated execution
+    return f"{decision} executed on {ticker}"
