@@ -6,8 +6,8 @@ import logging
 load_dotenv()
 
 # Email configuration
-EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_ADDRESS = os.getenv("shreyamgm16@gmail.com")
+EMAIL_PASSWORD = os.getenv("xrimgklmhzbiucfr")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 
