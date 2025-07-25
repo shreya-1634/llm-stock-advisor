@@ -1,42 +1,37 @@
+# core/api_manager.py
 import openai
-import os
 from newsapi import NewsApiClient
-from .config import get_logger
-
-logger = get_logger(__name__)
+import logging
+import streamlit as st
 
 class APIManager:
     def __init__(self):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY", None)
-        self.newsapi_key = os.getenv("NEWS_API_KEY", None)
+        self.news_api_key = None
+        self.openai_key = None
+        self.news_client = None
+        self.openai_client = None
+        self.load_api_keys()
 
-        self._openai_client = None
-        self._news_client = None
+    def load_api_keys(self):
+        try:
+            self.news_api_key = st.secrets["news_api"]["api_key"]
+            self.news_client = NewsApiClient(api_key=self.news_api_key)
+        except Exception as e:
+            logging.warning("❗️NewsAPI key missing or misconfigured in secrets.")
 
-        if self.openai_api_key:
-            try:
-                openai.api_key = self.openai_api_key
-                self._openai_client = openai
-                logger.info("✅ OpenAI client initialized.")
-            except Exception as e:
-                logger.error(f"❌ OpenAI init failed: {e}")
-
-        if self.newsapi_key:
-            try:
-                self._news_client = NewsApiClient(api_key=self.newsapi_key)
-                logger.info("✅ NewsAPI client initialized.")
-            except Exception as e:
-                logger.error(f"❌ NewsAPI init failed: {e}")
-
-    def get_openai(self):
-        if not self._openai_client:
-            logger.warning("⚠️ OpenAI client not available.")
-        return self._openai_client
+        try:
+            self.openai_key = st.secrets["openai"]["api_key"]
+            openai.api_key = self.openai_key
+            self.openai_client = openai
+        except Exception as e:
+            logging.warning("❗️OpenAI API key missing or misconfigured in secrets.")
 
     def get_news_client(self):
-        if not self._news_client:
-            logger.warning("⚠️ News API client not available.")
-        return self._news_client
+        return self.news_client
 
-# Singleton
+    def get_openai(self):
+        return self.openai_client
+
+
+# Global instance
 api_manager = APIManager()
