@@ -1,6 +1,7 @@
 import streamlit as st
 from core.visualization import create_interactive_chart, plot_rsi, plot_macd
 from core.data_fetcher import fetch_stock_data
+from core.news_analyzer import fetch_news_headlines
 from auths.auth import (
     register_user,
     authenticate_user,
@@ -109,6 +110,15 @@ elif menu == "Dashboard":
                     st.plotly_chart(create_interactive_chart(df), use_container_width=True)
                     st.plotly_chart(plot_rsi(df), use_container_width=True)
                     st.plotly_chart(plot_macd(df), use_container_width=True)
+
+                    # -------------------- Live News Section --------------------
+                    st.write("### 🗞️ Recent News Headlines")
+                    news = fetch_news_headlines(ticker)
+                    if news:
+                        for article in news:
+                            st.markdown(f"- [{article['title']}]({article['link']})")
+                    else:
+                        st.info("No recent news found.")
                 else:
                     st.error("❌ No data found.")
             else:
