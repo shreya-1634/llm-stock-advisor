@@ -1,8 +1,4 @@
 import streamlit as st
-import sqlite3
-import hashlib
-from datetime import datetime
-
 from core.visualization import create_interactive_chart, plot_rsi, plot_macd
 from core.data_fetcher import fetch_stock_data
 from auths.auth import (
@@ -15,16 +11,19 @@ from auths.auth import (
     get_logged_in_user,
 )
 
-# App configuration
+# -------------------- Streamlit Config --------------------
 st.set_page_config(page_title="📈 LLM Stock Advisor", layout="wide")
 st.title("📈 LLM Stock Advisor")
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
-menu = st.sidebar.radio("🔧 Navigation", ["Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"])
+# -------------------- Sidebar Navigation --------------------
+menu = st.sidebar.radio("🔧 Navigation", [
+    "Login", "Register", "Verify Email", "Reset Password", "Dashboard", "Logout"
+])
 
-# ✅ Google Finance-style time ranges
+# -------------------- Sidebar Time Range --------------------
 local_yf_config = {
     "1 Day": {"period": "1d", "interval": "5m"},
     "5 Days": {"period": "5d", "interval": "15m"},
@@ -35,18 +34,12 @@ local_yf_config = {
     "5 Years": {"period": "5y", "interval": "1wk"},
     "Max": {"period": "max", "interval": "1mo"}
 }
-
-# Time period selector
 st.sidebar.subheader("📅 Select Time Range")
-period_label = st.sidebar.selectbox(
-    "Choose a time range",
-    options=list(local_yf_config.keys()),
-    index=2  # Default: "1 Month"
-)
+period_label = st.sidebar.selectbox("Choose a time range", list(local_yf_config.keys()), index=2)
 
-# ---------------- Register ----------------
+# -------------------- Register Page --------------------
 if menu == "Register":
-    st.subheader("👤 Register New User")
+    st.subheader("👤 Register")
     username = st.text_input("Username")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
@@ -54,7 +47,7 @@ if menu == "Register":
         success, msg = register_user(username, email, password)
         st.success(msg) if success else st.error(msg)
 
-# ---------------- Login ----------------
+# -------------------- Login Page --------------------
 elif menu == "Login":
     st.subheader("🔐 Login")
     email = st.text_input("Email")
@@ -65,62 +58,63 @@ elif menu == "Login":
             st.session_state.user = user
             st.success(f"Welcome {user['username']}!")
         else:
-            st.error("Invalid credentials or email not verified.")
+            st.error("Invalid credentials or unverified email.")
 
-# ---------------- Verify Email ----------------
+# -------------------- Email Verification --------------------
 elif menu == "Verify Email":
-    st.subheader("📨 Email Verification")
-    email = st.text_input("Registered Email")
+    st.subheader("📨 Verify Email")
+    email = st.text_input("Email")
     token = st.text_input("Verification Token")
     if st.button("Verify"):
         if verify_email(email, token):
-            st.success("✅ Email verified successfully!")
+            st.success("✅ Email verified!")
         else:
             st.error("❌ Invalid or expired token.")
 
-# ---------------- Reset Password ----------------
+# -------------------- Password Reset --------------------
 elif menu == "Reset Password":
-    st.subheader("🔑 Password Reset")
-    stage = st.radio("Stage", ["Send Reset Token", "Reset with Token"])
+    st.subheader("🔑 Reset Password")
+    stage = st.radio("Choose", ["Send Reset Token", "Reset with Token"])
     email = st.text_input("Email")
+
     if stage == "Send Reset Token":
-        if st.button("Send Reset Email"):
+        if st.button("Send Token"):
             initiate_password_reset(email)
-            st.info("Reset token sent to your email.")
+            st.info("📧 Reset token sent to your email.")
     else:
         token = st.text_input("Reset Token")
         new_password = st.text_input("New Password", type="password")
         if st.button("Reset Password"):
             if complete_password_reset(email, token, new_password):
-                st.success("Password reset successful.")
+                st.success("✅ Password reset successfully!")
             else:
-                st.error("Invalid or expired reset token.")
+                st.error("❌ Invalid or expired token.")
 
-# ---------------- Dashboard ----------------
+# -------------------- Dashboard --------------------
 elif menu == "Dashboard":
     user = get_logged_in_user()
     if not user:
         st.warning("⚠️ Please login to access the dashboard.")
     else:
-        st.success(f"Welcome {user['username']}!")
-
-        ticker = st.text_input("🔎 Enter Stock Ticker (e.g., AAPL, TSLA)")
-        period = st.selectbox("⏳ Select Period", ["1mo", "3mo", "6mo", "1y", "2y"])
-
+        st.success(f"Welcome, {user['username']}!")
+        ticker = st.text_input("🔍 Enter Stock Ticker (e.g., AAPL, MSFT)")
+        time_config = local_yf_config[period_label]
         if st.button("Fetch Data"):
             if ticker:
-                df = fetch_stock_data(ticker, period)
+                df = fetch_stock_data(ticker, time_config["period"], time_config["interval"])
                 if df is not None and not df.empty:
-                    st.write("### 📊 Stock Data", df.tail())
+                    st.write("### 📊 Latest Stock Data")
+                    st.dataframe(df.tail())
+
                     st.plotly_chart(create_interactive_chart(df), use_container_width=True)
                     st.plotly_chart(plot_rsi(df), use_container_width=True)
                     st.plotly_chart(plot_macd(df), use_container_width=True)
                 else:
-                    st.error("❌ Could not fetch data or empty response.")
+                    st.error("❌ No data found.")
             else:
-                st.warning("⚠️ Please enter a ticker symbol.")
+                st.warning("⚠️ Please enter a ticker.")
 
-# ---------------- Logout ----------------
+# -------------------- Logout --------------------
 elif menu == "Logout":
     logout_user()
     st.success("✅ Logged out successfully.")
