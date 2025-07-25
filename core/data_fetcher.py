@@ -1,15 +1,13 @@
+# core/data_fetcher.py
 import yfinance as yf
 import pandas as pd
 import logging
 
-logger = logging.getLogger(__name__)
-
-def fetch_stock_data(ticker, period="1mo", interval="1d"):
+def fetch_stock_data(ticker, start="2020-01-01", end=None):
     try:
-        logger.info(f"Fetching data for {ticker} with {period}, {interval}")
-        df = yf.download(ticker, period=period, interval=interval)
+        df = yf.download(ticker, start=start, end=end)
         df.dropna(inplace=True)
         return df
     except Exception as e:
-        logger.error(f"YFinance fetch error: {e}")
+        logging.error(f"Error fetching data for {ticker}: {str(e)}")
         return pd.DataFrame()
