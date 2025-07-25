@@ -1,158 +1,156 @@
-# auths/auth.py
-
-import sqlite3
-import hashlib
-import secrets
 import json
 import os
-import streamlit as st
+import bcrypt
+import random
+import string
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-import smtplib
-from core.config import get_logger
 
-logger = get_logger(__name__)
-DB_FILE = "users.db"
-TOKEN_EXPIRY_MINUTES = 30
+from email_utils import send_otp_email
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+USER_DB_FILE = "data/users.json"
+OTP_STORE_FILE = "data/otp_store.json"
 
-def verify_password(password: str, hashed: str) -> bool:
-    return hash_password(password) == hashed
 
-def send_email(to: str, subject: str, body: str) -> bool:
+def load_users():
+    if not os.path.exists(USER_DB_FILE):
+        return {}
+    with open(USER_DB_FILE, "r") as f:
+        return json.load(f)
+
+
+def save_users(users):
+    with open(USER_DB_FILE, "w") as f:
+        json.dump(users, f, indent=4)
+
+
+def load_otps():
+    if not os.path.exists(OTP_STORE_FILE):
+        return {}
+    with open(OTP_STORE_FILE, "r") as f:
+        return json.load(f)
+
+
+def save_otps(otps):
+    with open(OTP_STORE_FILE, "w") as f:
+        json.dump(otps, f, indent=4)
+
+
+def generate_otp(length=6):
+    return ''.join(random.choices(string.digits, k=length))
+
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def check_password(password, hashed):
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+def signup_user(email, password):
+    users = load_users()
+    if email in users:
+        return {"success": False, "message": "User already exists."}
+
+    hashed_password = hash_password(password)
+    users[email] = {
+        "password": hashed_password,
+        "verified": False,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    save_users(users)
+
+    otp = generate_otp()
+    otps = load_otps()
+    otps[email] = {
+        "otp": otp,
+        "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+    }
+    save_otps(otps)
+    send_otp_email(email, otp)
+
+    return {"success": True, "message": "Signup successful. OTP sent for email verification."}
+
+
+def verify_email(email, entered_otp):
+    otps = load_otps()
+    if email not in otps:
+        return {"success": False, "message": "No OTP found."}
+
+    otp_entry = otps[email]
+    if datetime.utcnow() > datetime.fromisoformat(otp_entry["expires_at"]):
+        return {"success": False, "message": "OTP expired."}
+
+    if otp_entry["otp"] != entered_otp:
+        return {"success": False, "message": "Incorrect OTP."}
+
+    users = load_users()
+    if email in users:
+        users[email]["verified"] = True
+        save_users(users)
+
+    del otps[email]
+    save_otps(otps)
+
+    return {"success": True, "message": "Email verified successfully."}
+
+
+def login_user(email, password):
+    users = load_users()
+    user = users.get(email)
+    if not user:
+        return {"success": False, "message": "User not found."}
+    if not user.get("verified"):
+        return {"success": False, "message": "Email not verified."}
+    if not check_password(password, user["password"]):
+        return {"success": False, "message": "Incorrect password."}
+    return {"success": True, "message": "Login successful."}
+
+
+def send_password_reset(email):
+    users = load_users()
+    if email not in users:
+        return {"success": False, "message": "User not found."}
+
+    otp = generate_otp()
+    otps = load_otps()
+    otps[email] = {
+        "otp": otp,
+        "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+    }
+    save_otps(otps)
+    send_otp_email(email, otp)
+
+    return {"success": True, "message": "OTP sent for password reset."}
+
+
+def reset_password(email, entered_otp, new_password):
+    otps = load_otps()
+    if email not in otps:
+        return {"success": False, "message": "No OTP found."}
+
+    otp_entry = otps[email]
+    if datetime.utcnow() > datetime.fromisoformat(otp_entry["expires_at"]):
+        return {"success": False, "message": "OTP expired."}
+
+    if otp_entry["otp"] != entered_otp:
+        return {"success": False, "message": "Incorrect OTP."}
+
+    users = load_users()
+    if email in users:
+        users[email]["password"] = hash_password(new_password)
+        save_users(users)
+
+    del otps[email]
+    save_otps(otps)
+
+    return {"success": True, "message": "Password reset successfully."}
+
+def verify_token(token):
     try:
-        smtp_server = os.getenv("EMAIL_USER")  # no, it's EMAIL_USER used in config? fix: SMTP_SERVER env
-        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        sender = os.getenv("EMAIL") or os.getenv("EMAIL_USER")
-        sender_pw = os.getenv("EMAIL_PASSWORD")
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = sender
-        msg["To"] = to
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(sender, sender_pw)
-            server.send_message(msg)
-        logger.info(f"Sent email to {to}")
-        return True
-    except Exception as e:
-        logger.error(f"Email send error: {e}")
-        return False
-
-def _connect():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def _cleanup_expired_tokens(tokens: dict) -> dict:
-    cleaned = {}
-    now = datetime.now()
-    for ttype, data in tokens.items():
-        created = datetime.fromisoformat(data.get("created_at"))
-        if now - created < timedelta(minutes=TOKEN_EXPIRY_MINUTES):
-            cleaned[ttype] = data
-    return cleaned
-
-def register_user(username: str, email: str, password: str):
-    hashed = hash_password(password)
-    conn = _connect()
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO users(username,email,password,verified,permissions,tokens) VALUES (?,?,?,?,?,?)",
-                  (username, email, hashed, False, json.dumps({}), json.dumps({})))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, "❌ Email already registered."
-    token = _generate_token(email, "verification")
-    send_email(email, "Verify your email", f"Your verification token: {token}")
-    conn.close()
-    logger.info(f"Registered {username}, verification token sent")
-    return True, "✅ Registered successfully. Check your email for verification code."
-
-def _generate_token(email: str, ttype: str) -> str:
-    token = secrets.token_hex(3)
-    conn = _connect(); c=conn.cursor()
-    c.execute("SELECT tokens FROM users WHERE email=?", (email,))
-    row = c.fetchone()
-    tokens = json.loads(row["tokens"] or "{}") if row else {}
-    tokens = _cleanup_expired_tokens(tokens)
-    tokens[ttype] = {"token": token, "created_at": str(datetime.now())}
-    c.execute("UPDATE users SET tokens=? WHERE email=?", (json.dumps(tokens), email))
-    conn.commit(); conn.close()
-    logger.info(f"Generated {ttype} token for {email}")
-    return token
-
-def verify_email(email: str, token_input: str) -> bool:
-    conn = _connect(); c=conn.cursor()
-    c.execute("SELECT tokens FROM users WHERE email=?", (email,))
-    row = c.fetchone()
-    if not row:
-        conn.close(); return False
-    tokens = json.loads(row["tokens"] or "{}")
-    tokens = _cleanup_expired_tokens(tokens)
-    v = tokens.get("verification")
-    if v and v.get("token") == token_input:
-        c.execute("UPDATE users SET verified=?, tokens=? WHERE email=?", (True, json.dumps({}), email))
-        conn.commit(); conn.close()
-        logger.info(f"{email} verified")
-        return True
-    conn.close()
-    return False
-
-def authenticate_user(email: str, password: str):
-    conn = _connect(); c=conn.cursor()
-    c.execute("SELECT * FROM users WHERE email=?", (email,))
-    row = c.fetchone()
-    conn.close()
-    if row and verify_password(password, row["password"]):
-        if not row["verified"]:
-            return None
-        return {
-            "username": row["username"],
-            "email": row["email"],
-            "verified": bool(row["verified"]),
-            "permissions": json.loads(row["permissions"] or "{}"),
-            "tokens": json.loads(row["tokens"] or "{}"),
-        }
-    return None
-
-def initiate_password_reset(email: str) -> bool:
-    conn = _connect(); c=conn.cursor()
-    c.execute("SELECT * FROM users WHERE email=?", (email,))
-    if not c.fetchone():
-        conn.close(); return False
-    token = _generate_token(email, "reset")
-    send_email(email, "Password reset token", f"Use this token to reset your password: {token}")
-    conn.close()
-    logger.info(f"Sent password reset to {email}")
-    return True
-
-def complete_password_reset(email: str, token_input: str, new_password: str) -> bool:
-    conn = _connect(); c=conn.cursor()
-    c.execute("SELECT tokens FROM users WHERE email=?", (email,))
-    row = c.fetchone()
-    if not row:
-        conn.close(); return False
-    tokens = json.loads(row["tokens"] or "{}")
-    tokens = _cleanup_expired_tokens(tokens)
-    r = tokens.get("reset")
-    if r and r.get("token") == token_input:
-        hashed = hash_password(new_password)
-        tokens.pop("reset", None)
-        c.execute("UPDATE users SET password=?, tokens=? WHERE email=?", (hashed, json.dumps(tokens), email))
-        conn.commit(); conn.close()
-        logger.info(f"Password reset for {email}")
-        return True
-    conn.close()
-    return False
-
-def logout_user():
-    if "user" in st.session_state:
-        del st.session_state["user"]
-
-def get_logged_in_user():
-    return st.session_state.get("user", None)
+        email = serializer.loads(token, max_age=3600)  # 1 hour token
+        return {"status": True, "email": email}
+    except SignatureExpired:
+        return {"status": False, "message": "Token expired."}
+    except BadSignature:
+        return {"status": False, "message": "Invalid token."}
