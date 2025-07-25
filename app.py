@@ -100,27 +100,25 @@ elif menu == "Reset Password":
 elif menu == "Dashboard":
     user = get_logged_in_user()
     if not user:
-        st.warning("⚠️ Please login to fetch data of any ticker.")
+        st.warning("⚠️ Please login to access the dashboard.")
     else:
         st.success(f"Welcome {user['username']}!")
 
-        ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA)")
+        ticker = st.text_input("🔎 Enter Stock Ticker (e.g., AAPL, TSLA)")
+        period = st.selectbox("⏳ Select Period", ["1mo", "3mo", "6mo", "1y", "2y"])
 
-        if st.button("Fetch Data") and ticker:
-            config = local_yf_config.get(period_label, {"period": "1mo", "interval": "1d"})
-            period = config["period"]
-            interval = config["interval"]
-
-            st.info(f"📡 Fetching {period_label} data for {ticker}...")
-
-            df = fetch_stock_data(ticker, period=period, interval=interval)
-
-            if not df.empty:
-                   st.plotly_chart(create_interactive_chart(df, ticker), use_container_width=True)
-                st.plotly_chart(plot_macd(df), use_container_width=True)
-            st.plotly_chart(plot_rsi(df), use_container_width=True)
+        if st.button("Fetch Data"):
+            if ticker:
+                df = fetch_stock_data(ticker, period)
+                if df is not None and not df.empty:
+                    st.write("### 📊 Stock Data", df.tail())
+                    st.plotly_chart(create_interactive_chart(df), use_container_width=True)
+                    st.plotly_chart(plot_rsi(df), use_container_width=True)
+                    st.plotly_chart(plot_macd(df), use_container_width=True)
+                else:
+                    st.error("❌ Could not fetch data or empty response.")
             else:
-                st.warning("❌ No data available for the selected ticker and period.")
+                st.warning("⚠️ Please enter a ticker symbol.")
 
 # ---------------- Logout ----------------
 elif menu == "Logout":
