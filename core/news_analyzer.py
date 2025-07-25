@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEWS_API_KEY = os.getenv("492fa1e881394250b2eb012b0f162459")  # Get it from https://newsapi.org/
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")  # Get it from https://newsapi.org/
 sentiment_pipeline = pipeline("sentiment-analysis")
 
 def fetch_news(ticker: str, max_articles: int = 10):
