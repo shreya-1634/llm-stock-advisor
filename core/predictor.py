@@ -1,50 +1,88 @@
 import numpy as np
 import pandas as pd
+import yfinance as yf
+from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import load_model
+import json
 import os
+from dotenv import load_dotenv
 
-scaler = MinMaxScaler(feature_range=(0, 1))
+# Load environment variables
+load_dotenv()
 
-MODEL_PATH = "models/lstm_model.h5"  # Replace with your actual trained model path
+# Define thresholds for Buy/Sell/Hold
+BUY_THRESHOLD = 1.02  # Predicted > 2% above current
+SELL_THRESHOLD = 0.98  # Predicted < 2% below current
 
-def prepare_data(df, feature='Close', window_size=60):
-    """
-    Prepares scaled data for LSTM input.
-    """
-    data = df[feature].values.reshape(-1, 1)
-    scaled_data = scaler.fit_transform(data)
+# Load model and initialize scaler
+MODEL_PATH = "models/lstm_model.h5"
+model = load_model(MODEL_PATH)
 
-    x_test = []
-    for i in range(window_size, len(scaled_data)):
-        x_test.append(scaled_data[i - window_size:i, 0])
-
-    x_test = np.array(x_test)
-    x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
-    return x_test, scaled_data
-
-
-def predict_future_price(df):
-    """
-    Loads pre-trained LSTM model and predicts next price based on recent data.
-    """
-    if not os.path.exists(MODEL_PATH):
-        print("LSTM model not found. Returning last close price as fallback.")
-        return df['Close'].iloc[-1]
-
-    model = load_model(MODEL_PATH)
-    x_test, scaled_data = prepare_data(df)
-
-    predicted_price = model.predict(x_test)
-    predicted_price = scaler.inverse_transform(predicted_price)
-    
-    return round(float(predicted_price[-1]), 2)
+# Optional: load allowed users
+def is_user_allowed(user_id: str):
+    with open("auths/permissions.json", "r") as f:
+        allowed = json.load(f)
+    return user_id in allowed.get("permitted_users", [])
 
 
-def calculate_volatility(df, period=14):
-    """
-    Computes rolling volatility (standard deviation of log returns).
-    """
-    df['Log Return'] = np.log(df['Close'] / df['Close'].shift(1))
-    volatility = df['Log Return'].rolling(window=period).std() * np.sqrt(252)
-    return round(float(volatility.iloc[-1]), 4)
+def download_data(ticker='AAPL', period='6mo', interval='1d'):
+    df = yf.download(ticker, period=period, interval=interval)
+    df.dropna(inplace=True)
+    return df[['Close']]
+
+
+def prepare_input_data(df, seq_len=60):
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(df)
+
+    X = []
+    last_seq = scaled_data[-seq_len:]
+    X.append(last_seq)
+    X = np.array(X)
+    X = X.reshape((X.shape[0], X.shape[1], 1))
+
+    return X, scaler
+
+
+def make_prediction(ticker: str, user_id: str):
+    # Check permissions
+    if not is_user_allowed(user_id):
+        return {
+            "status": "error",
+            "message": f"User '{user_id}' does not have AI execution permissions."
+        }
+
+    df = download_data(ticker)
+    if len(df) < 60:
+        return {
+            "status": "error",
+            "message": f"Not enough data to make a prediction for {ticker}"
+        }
+
+    X, scaler = prepare_input_data(df)
+    prediction_scaled = model.predict(X)[0][0]
+    prediction = scaler.inverse_transform([[prediction_scaled]])[0][0]
+
+    current_price = df['Close'].iloc[-1]
+    change_ratio = prediction / current_price
+
+    # Generate recommendation
+    if change_ratio > BUY_THRESHOLD:
+        recommendation = "Buy"
+    elif change_ratio < SELL_THRESHOLD:
+        recommendation = "Sell"
+    else:
+        recommendation = "Hold"
+
+    # Confidence: based on distance from thresholds
+    diff = abs(change_ratio - 1)
+    confidence = "High" if diff > 0.05 else "Moderate" if diff > 0.02 else "Low"
+
+    return {
+        "status": "success",
+        "ticker": ticker.upper(),
+        "predicted_price": round(prediction, 2),
+        "current_price": round(current_price, 2),
+        "recommendation": recommendation,
+        "confidence": confidence
+    }
