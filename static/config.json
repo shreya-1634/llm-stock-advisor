@@ -1,21 +1,23 @@
 {
-  "API_KEYS": {
-    "NEWS_API": "USE_STREAMLIT_SECRETS",
-    "OPENAI_API": "USE_STREAMLIT_SECRETS"
+  "theme": {
+    "primaryColor": "#00bcd4",
+    "backgroundColor": "#ffffff",
+    "secondaryBackgroundColor": "#f0f2f6",
+    "textColor": "#262730",
+    "font": "sans serif"
   },
-  "SETTINGS": {
-    "NEWS_DAYS_BACK": 7,
-    "GPT_MODEL": "gpt-4-turbo-preview",
-    "MAX_TOKENS": 500,
-    "TRADING": {
-      "MAX_TRADE_AMOUNT": 5000,
-      "PERMISSION_TIMEOUT": 30
-    },
-    "MODEL": {
-      "TRAINING_WINDOW": 60,
-      "PREDICTION_WINDOW": 7,
-      "EPOCHS": 50,
-      "BATCH_SIZE": 32
-    }
+  "layout": "wide",
+  "initial_sidebar_state": "expanded",
+  "showSidebar": true,
+  "navigation": {
+    "sections": [
+      "Home",
+      "Sign Up / Login",
+      "Dashboard",
+      "Chart Analysis",
+      "Prediction",
+      "News Feed",
+      "AI Actions"
+    ]
   }
 }
