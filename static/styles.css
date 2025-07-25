@@ -1,66 +1,80 @@
-.stApp {
-    background-color: #0e1117;
-    color: #f0f2f6;
-    font-family: 'Inter', sans-serif;
+/* Center titles */
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  text-align: center;
+  color: #00bcd4;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.stSidebar {
-    background-color: #1a1d24;
-    padding: 1.5rem;
-    border-right: 1px solid #2d3747;
+/* Card layout for news headlines */
+.news-card {
+  background-color: #f8f9fa;
+  border-left: 4px solid #00bcd4;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
 }
 
+.news-card a {
+  text-decoration: none;
+  font-weight: bold;
+  color: #0066cc;
+}
+
+/* Candlestick and chart containers */
+.chart-container {
+  padding: 1rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* RSI / MACD indicator style */
+.indicator-box {
+  background-color: #e3f2fd;
+  padding: 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Buy/Sell/Hold recommendation color */
+.recommendation-Buy {
+  color: green;
+  font-weight: bold;
+}
+.recommendation-Sell {
+  color: red;
+  font-weight: bold;
+}
+.recommendation-Hold {
+  color: orange;
+  font-weight: bold;
+}
+
+/* Input box styling */
+.stTextInput>div>div>input {
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+/* Button enhancements */
 .stButton>button {
-    background-color: #4a8cff;
-    color: white;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    border: none;
-    transition: all 0.3s;
-    font-weight: 500;
+  background-color: #00bcd4;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.2rem;
+  margin-top: 1rem;
 }
 
 .stButton>button:hover {
-    background-color: #3a7ce0;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.stTextInput>div>div>input,
-.stSelectbox>select {
-    background-color: #1a1d24 !important;
-    color: white !important;
-    border: 1px solid #2d3747 !important;
-    border-radius: 6px !important;
-    padding: 8px 12px !important;
-}
-
-.stExpander {
-    background-color: #1a1d24;
-    border: 1px solid #2d3747;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-}
-
-.stExpander .stExpanderHeader {
-    color: #f0f2f6;
-    font-weight: 600;
-}
-
-.stMetric {
-    background-color: #1a1d24;
-    border: 1px solid #2d3747;
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.plotly-graph-div {
-    border-radius: 8px;
-    border: 1px solid #2d3747;
-}
-
-@media (max-width: 768px) {
-    .stSidebar {
-        width: 100%;
-    }
+  background-color: #0097a7;
+  cursor: pointer;
 }
