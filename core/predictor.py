@@ -1,110 +1,50 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
-import json
+from tensorflow.keras.models import load_model
 import os
-from .config import get_logger
 
-logger = get_logger(__name__)
+scaler = MinMaxScaler(feature_range=(0, 1))
 
-class LSTMPredictor:
-    def __init__(self):
-        with open("static/config.json") as f:
-            self.config = json.load(f)
-        self.scaler = MinMaxScaler(feature_range=(0, 1))
-        logger.info("LSTM Predictor initialized")
+MODEL_PATH = "models/lstm_model.h5"  # Replace with your actual trained model path
 
-    def prepare_data(self, data):
-        window_size = self.config["MODEL"]["TRAINING_WINDOW"]
-        close_prices = data['Close'].values.reshape(-1, 1)
-        scaled_data = self.scaler.fit_transform(close_prices)
-        
-        X, y = [], []
-        for i in range(window_size, len(scaled_data)):
-            X.append(scaled_data[i-window_size:i, 0])
-            y.append(scaled_data[i, 0])
-        
-        X, y = np.array(X), np.array(y)
-        X = np.reshape(X, (X.shape[0], X.shape[1], 1))
-        return X, y
+def prepare_data(df, feature='Close', window_size=60):
+    """
+    Prepares scaled data for LSTM input.
+    """
+    data = df[feature].values.reshape(-1, 1)
+    scaled_data = scaler.fit_transform(data)
 
-    def build_model(self, input_shape):
-        model = Sequential([
-            LSTM(64, return_sequences=True, input_shape=input_shape),
-            Dropout(0.3),
-            LSTM(64, return_sequences=False),
-            Dropout(0.3),
-            Dense(32, activation='relu'),
-            Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mse')
-        logger.debug("Model architecture built")
-        return model
+    x_test = []
+    for i in range(window_size, len(scaled_data)):
+        x_test.append(scaled_data[i - window_size:i, 0])
 
-    def train_and_save_model(self, data, model_path="models/lstm_model.h5"):
-        X, y = self.prepare_data(data)
-        model = self.build_model((X.shape[1], 1))
-        
-        logger.info("Starting model training...")
-        model.fit(
-            X, y,
-            epochs=self.config["MODEL"]["EPOCHS"],
-            batch_size=self.config["MODEL"]["BATCH_SIZE"],
-            callbacks=[EarlyStopping(monitor='loss', patience=5)],
-            verbose=1
-        )
-        
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
-        model.save(model_path)
-        logger.info(f"Model saved to {model_path}")
-        return model
+    x_test = np.array(x_test)
+    x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
+    return x_test, scaled_data
 
-    def load_model(self, model_path="models/lstm_model.h5"):
-        if os.path.exists(model_path):
-            logger.debug(f"Loading model from {model_path}")
-            return load_model(model_path)
-        raise FileNotFoundError(f"Model file not found at {model_path}")
 
-    def predict(self, data, days=7):
-        model = self.load_model()
-        window_size = self.config["MODEL"]["TRAINING_WINDOW"]
-        
-        close_prices = data['Close'].values[-window_size:]
-        scaled_prices = self.scaler.transform(close_prices.reshape(-1, 1))
-        
-        predictions = []
-        current_sequence = scaled_prices.reshape(1, window_size, 1)
-        
-        logger.info(f"Predicting next {days} days")
-        for _ in range(days):
-            next_pred = model.predict(current_sequence, verbose=0)[0, 0]
-            predictions.append(next_pred)
-            current_sequence = np.append(
-                current_sequence[:, 1:, :],
-                [[[next_pred]]],
-                axis=1
-            )
-        
-        predictions = self.scaler.inverse_transform(
-            np.array(predictions).reshape(-1, 1)
-        )
-        
-        last_date = data.index[-1]
-        future_dates = pd.date_range(
-            start=last_date,
-            periods=days + 1,
-            freq='B'
-        )[1:]
-        
-        return pd.DataFrame({
-            'Date': future_dates,
-            'Close': predictions.flatten()
-        }).set_index('Date')
+def predict_future_price(df):
+    """
+    Loads pre-trained LSTM model and predicts next price based on recent data.
+    """
+    if not os.path.exists(MODEL_PATH):
+        print("LSTM model not found. Returning last close price as fallback.")
+        return df['Close'].iloc[-1]
 
-stock_predictor = LSTMPredictor()
+    model = load_model(MODEL_PATH)
+    x_test, scaled_data = prepare_data(df)
 
-def predict_future_prices(data, days=7):
-    return stock_predictor.predict(data, days)
+    predicted_price = model.predict(x_test)
+    predicted_price = scaler.inverse_transform(predicted_price)
+    
+    return round(float(predicted_price[-1]), 2)
+
+
+def calculate_volatility(df, period=14):
+    """
+    Computes rolling volatility (standard deviation of log returns).
+    """
+    df['Log Return'] = np.log(df['Close'] / df['Close'].shift(1))
+    volatility = df['Log Return'].rolling(window=period).std() * np.sqrt(252)
+    return round(float(volatility.iloc[-1]), 4)
