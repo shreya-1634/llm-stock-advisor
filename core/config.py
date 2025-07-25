@@ -6,16 +6,16 @@ import logging
 load_dotenv()
 
 # Email configuration
-EMAIL_ADDRESS = os.getenv("shreyamgm16@gmail.com")
-EMAIL_PASSWORD = os.getenv("xrimgklmhzbiucfr")
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 
 # News API key
-NEWS_API_KEY = os.getenv("492fa1e881394250b2eb012b0f162459")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 # Alpha Vantage or alternative stock price API key
-STOCK_API_KEY = os.getenv("8AUSOBVZ9ASR1SBN")
+STOCK_API_KEY = os.getenv("STOCK_API_KEY")
 
 # Set up logging
 def get_logger(name: str) -> logging.Logger:
