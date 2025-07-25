@@ -1,90 +1,31 @@
-# core/config.py
 import os
-import psycopg2
 from dotenv import load_dotenv
 import logging
-import time  # Ensure this exists
-import streamlit as st
 
+# Load environment variables from .env file
 load_dotenv()
 
-def get_logger(name):
+# Email configuration
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+
+# News API key
+NEWS_API_KEY = os.getenv("492fa1e881394250b2eb012b0f162459")
+
+# Alpha Vantage or alternative stock price API key
+STOCK_API_KEY = os.getenv("8AUSOBVZ9ASR1SBN")
+
+# Set up logging
+def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
-    if not logger.hasHandlers():
-        logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
+
+    if not logger.handlers:
         handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+
     return logger
-
-def get_email_config():
-    return {
-        "smtp_server": st.secrets["email"]["smtp_server"],
-        "smtp_port": st.secrets["email"]["smtp_port"],
-        "email": st.secrets["email"]["email"],
-        "password": st.secrets["email"]["password"]
-    }
-
-def get_db_connection():
-    """Secure PostgreSQL connection with retry logic"""
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            conn = psycopg2.connect(
-                host=os.getenv("DB_HOST"),
-                database=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                port=os.getenv("DB_PORT", "5432"),
-                connect_timeout=5,
-                sslmode="require"
-            )
-            return conn
-        except psycopg2.OperationalError as e:
-            logging.warning(f"Connection attempt {attempt + 1} failed: {str(e)}")
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(2)
-
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler("app.log"),
-            logging.StreamHandler()
-        ]
-    )
-
-class APIManager:
-    def __init__(self):
-        self.news_api_key = None
-        self.openai_key = None
-        self.news_client = None
-        self.openai_client = None
-        self.load_api_keys()
-
-    def load_api_keys(self):
-        try:
-            self.news_api_key = st.secrets["news_api"]["api_key"]
-            self.news_client = NewsApiClient(api_key=self.news_api_key)
-        except Exception as e:
-            logging.warning("❗️NewsAPI key missing or misconfigured in secrets.")
-
-        try:
-            self.openai_key = st.secrets["openai"]["api_key"]
-            openai.api_key = self.openai_key
-            self.openai_client = openai
-        except Exception as e:
-            logging.warning("❗️OpenAI API key missing or misconfigured in secrets.")
-
-    def get_news_client(self):
-        return self.news_client
-
-    def get_openai(self):
-        return self.openai_client
-
-
-# Global instance
-api_manager = APIManager()
