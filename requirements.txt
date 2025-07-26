@@ -1,5 +1,14 @@
-streamlit>=1.30.0
-pandas>=1.5.0
-numpy>=1.21.0
-yfinance>=0.2.33
-plotly>=5.11.0
+# your_project/requirements.txt
+
+streamlit
+pandas
+numpy
+yfinance
+ta # Technical Analysis library
+tensorflow # or tensorflow-cpu if you don't have a GPU
+scikit-learn
+bcrypt # For secure password hashing
+requests # For making HTTP requests (e.g., to NewsAPI)
+plotly # For interactive charts
+mplfinance # For professional candlestick charts
+python-dotenv # For loading environment variables from .env
