@@ -1,62 +1,23 @@
-# Byte-compiled / optimized / DLL files
+# your_project/.gitignore
+
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environment
+*.pyc
+*.egg-info/
 .venv/
-env/
 venv/
-
-# Local environment variables
-.env
-secrets.toml
-
-# Model files
-models/*.h5
-models/*.pkl
-
-# Jupyter/IPython Notebook checkpoints
-.ipynb_checkpoints
-
-# VS Code settings
-.vscode/
-
-# macOS files
-.DS_Store
-
-# Logs
-*.log
-*.sqlite3
-*.db
-
-# Streamlit cache
-.streamlit/config.toml
-.streamlit/secrets.toml
-
-# Pytest cache
 .pytest_cache/
-
-# mypy
 .mypy_cache/
 
-# Coverage reports
-htmlcov/
-.coverage
-.cache
+# Environment variables
+.env
 
-# Build outputs
-build/
-dist/
-*.egg-info/
+# Trained Models (can be large)
+data/model/*.h5
+data/model/*.keras
 
-# Static builds or exported charts/images
-*.pdf
-*.png
-*.jpg
-*.jpeg
-charts_export/
+# Cached data (optional, if you regenerate it often)
+data/ticker_cache/
 
-# Temporary files
-*.bak
-*.tmp
+# Streamlit specific
+.streamlit/
