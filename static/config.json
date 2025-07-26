@@ -1,15 +1,15 @@
-/* your_project/static/config.json */
+// your_project/static/config.json 
 
 {
     "ui_settings": {
-        "primary_color": "#2196F3",  /* A blue shade */
-        "background_color": "#0E1117", /* Dark background for Streamlit dark theme */
+        "primary_color": "#2196F3",  // A blue shade 
+        "background_color": "#0E1117", // Dark background for Streamlit dark theme 
         "secondary_background_color": "#262730",
         "text_color": "#FAFAFA",
         "font": "sans-serif",
         "header_font_size": "2.5em",
         "body_font_size": "1em",
-        "chart_palette": ["#4CAF50", "#FF9800", "#F44336", "#2196F3", "#9C27B0"] /* Example colors for charts */
+        "chart_palette": ["#4CAF50", "#FF9800", "#F44336", "#2196F3", "#9C27B0"] // Example colors for charts 
     },
     "layout_options": {
         "sidebar_width": "300px",
