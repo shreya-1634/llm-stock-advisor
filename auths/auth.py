@@ -1,156 +1,194 @@
-import json
-import os
-import bcrypt
-import random
-import string
-from datetime import datetime, timedelta
+# your_project/auths/auth.py
 
-from email_utils import send_otp_email
+import streamlit as st
+import time
+from db.user_manager import UserManager
+from utils.password_utils import PasswordUtils
+from utils.email_utils import EmailUtils
+from utils.session_utils import SessionManager
 
-USER_DB_FILE = "data/users.json"
-OTP_STORE_FILE = "data/otp_store.json"
+class AuthManager:
+    def __init__(self):
+        self.user_manager = UserManager()
+        self.password_utils = PasswordUtils()
+        self.email_utils = EmailUtils()
+        self.session_manager = SessionManager()
 
+    def signup_ui(self):
+        """Renders the user signup form and handles registration logic."""
+        st.subheader("Create a New Account")
+        with st.form("signup_form"):
+            email = st.text_input("Email", key="signup_email_input").strip()
+            password = st.text_input("Password", type="password", key="signup_password_input")
+            confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_password_input")
+            submit_button = st.form_submit_button("Sign Up")
 
-def load_users():
-    if not os.path.exists(USER_DB_FILE):
-        return {}
-    with open(USER_DB_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_users(users):
-    with open(USER_DB_FILE, "w") as f:
-        json.dump(users, f, indent=4)
-
-
-def load_otps():
-    if not os.path.exists(OTP_STORE_FILE):
-        return {}
-    with open(OTP_STORE_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_otps(otps):
-    with open(OTP_STORE_FILE, "w") as f:
-        json.dump(otps, f, indent=4)
-
-
-def generate_otp(length=6):
-    return ''.join(random.choices(string.digits, k=length))
-
-
-def hash_password(password):
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-def check_password(password, hashed):
-    return bcrypt.checkpw(password.encode(), hashed.encode())
-
-
-def signup_user(email, password):
-    users = load_users()
-    if email in users:
-        return {"success": False, "message": "User already exists."}
-
-    hashed_password = hash_password(password)
-    users[email] = {
-        "password": hashed_password,
-        "verified": False,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    save_users(users)
-
-    otp = generate_otp()
-    otps = load_otps()
-    otps[email] = {
-        "otp": otp,
-        "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()
-    }
-    save_otps(otps)
-    send_otp_email(email, otp)
-
-    return {"success": True, "message": "Signup successful. OTP sent for email verification."}
+            if submit_button:
+                if not email or not password or not confirm_password:
+                    st.error("All fields are required.")
+                elif password != confirm_password:
+                    st.error("Passwords do not match.")
+                elif len(password) < 6: # Basic password policy
+                    st.error("Password must be at least 6 characters long.")
+                elif self.user_manager.get_user_by_email(email):
+                    st.error("Email already registered. Please log in or reset password.")
+                else:
+                    hashed_password = self.password_utils.hash_password(password)
+                    otp = self.email_utils.generate_otp()
+                    
+                    if self.user_manager.add_user(email, hashed_password, role='free'):
+                        if self.user_manager.store_otp(email, otp):
+                            if self.email_utils.send_verification_email(email, otp):
+                                st.success("Account created! Check your email for a verification OTP.")
+                                st.session_state['signup_email_for_verification'] = email # Store email for next step
+                            else:
+                                st.error("Account created, but failed to send verification email. Please try 'Resend OTP'.")
+                                st.session_state['signup_email_for_verification'] = email
+                        else:
+                            st.error("Failed to store OTP. Please try again.")
+                    else:
+                        st.error("Registration failed. Please try again.")
+        
+        # Display OTP verification section after signup
+        if 'signup_email_for_verification' in st.session_state and st.session_state['signup_email_for_verification']:
+            self.verify_email_ui(st.session_state['signup_email_for_verification'])
 
 
-def verify_email(email, entered_otp):
-    otps = load_otps()
-    if email not in otps:
-        return {"success": False, "message": "No OTP found."}
+    def verify_email_ui(self, email_for_verification: str):
+        """Renders the OTP verification form."""
+        st.subheader(f"Verify Email for {email_for_verification}")
+        user_data = self.user_manager.get_user_by_email(email_for_verification)
 
-    otp_entry = otps[email]
-    if datetime.utcnow() > datetime.fromisoformat(otp_entry["expires_at"]):
-        return {"success": False, "message": "OTP expired."}
+        if not user_data or user_data.get('is_verified'):
+            st.info("Email already verified or user not found.")
+            if 'signup_email_for_verification' in st.session_state:
+                del st.session_state['signup_email_for_verification']
+            return
 
-    if otp_entry["otp"] != entered_otp:
-        return {"success": False, "message": "Incorrect OTP."}
+        with st.form("verify_email_form"):
+            otp_input = st.text_input("Enter OTP", key="verify_otp_input").strip()
+            col1, col2 = st.columns(2)
+            with col1:
+                verify_button = st.form_submit_button("Verify")
+            with col2:
+                resend_otp_button = st.form_submit_button("Resend OTP")
 
-    users = load_users()
-    if email in users:
-        users[email]["verified"] = True
-        save_users(users)
-
-    del otps[email]
-    save_otps(otps)
-
-    return {"success": True, "message": "Email verified successfully."}
-
-
-def login_user(email, password):
-    users = load_users()
-    user = users.get(email)
-    if not user:
-        return {"success": False, "message": "User not found."}
-    if not user.get("verified"):
-        return {"success": False, "message": "Email not verified."}
-    if not check_password(password, user["password"]):
-        return {"success": False, "message": "Incorrect password."}
-    return {"success": True, "message": "Login successful."}
-
-
-def send_password_reset(email):
-    users = load_users()
-    if email not in users:
-        return {"success": False, "message": "User not found."}
-
-    otp = generate_otp()
-    otps = load_otps()
-    otps[email] = {
-        "otp": otp,
-        "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()
-    }
-    save_otps(otps)
-    send_otp_email(email, otp)
-
-    return {"success": True, "message": "OTP sent for password reset."}
+            if verify_button:
+                if self.user_manager.verify_otp(email_for_verification, otp_input):
+                    self.user_manager.set_email_verified(email_for_verification, True)
+                    st.success("Email verified successfully! You can now log in.")
+                    if 'signup_email_for_verification' in st.session_state:
+                        del st.session_state['signup_email_for_verification']
+                else:
+                    st.error("Invalid OTP or OTP expired. Please try again or resend.")
+            
+            if resend_otp_button:
+                otp = self.email_utils.generate_otp()
+                if self.user_manager.store_otp(email_for_verification, otp):
+                    if self.email_utils.send_verification_email(email_for_verification, otp):
+                        st.success("New OTP sent to your email.")
+                    else:
+                        st.error("Failed to send new OTP. Please check email config.")
+                else:
+                    st.error("Failed to generate/store new OTP.")
 
 
-def reset_password(email, entered_otp, new_password):
-    otps = load_otps()
-    if email not in otps:
-        return {"success": False, "message": "No OTP found."}
+    def login_ui(self):
+        """Renders the user login form and handles authentication."""
+        st.subheader("Login to Your Account")
+        with st.form("login_form"):
+            email = st.text_input("Email", key="login_email_input").strip()
+            password = st.text_input("Password", type="password", key="login_password_input")
+            submit_button = st.form_submit_button("Login")
 
-    otp_entry = otps[email]
-    if datetime.utcnow() > datetime.fromisoformat(otp_entry["expires_at"]):
-        return {"success": False, "message": "OTP expired."}
+            if submit_button:
+                if not email or not password:
+                    st.error("Please enter email and password.")
+                    return
 
-    if otp_entry["otp"] != entered_otp:
-        return {"success": False, "message": "Incorrect OTP."}
+                user_data = self.user_manager.get_user_by_email(email)
+                if user_data:
+                    if self.password_utils.verify_password(password, user_data['password_hash']):
+                        if user_data.get('is_verified', False):
+                            self.session_manager.login_user(user_data['email'], user_data['role'])
+                            self.user_manager._log_activity(email, "login", "Successful login.")
+                            st.success("Logged in successfully!")
+                            st.experimental_rerun() # Rerun to show main app content
+                        else:
+                            st.warning("Please verify your email first to log in.")
+                            st.session_state['signup_email_for_verification'] = email # Allow user to verify now
+                    else:
+                        st.error("Invalid email or password.")
+                        self.user_manager._log_activity(email, "login_failed", "Invalid password.")
+                else:
+                    st.error("Invalid email or password.")
+                    self.user_manager._log_activity(email, "login_failed", "Email not found.")
 
-    users = load_users()
-    if email in users:
-        users[email]["password"] = hash_password(new_password)
-        save_users(users)
+    def reset_password_ui(self):
+        """Renders the password reset request and reset forms."""
+        st.subheader("Reset Your Password")
 
-    del otps[email]
-    save_otps(otps)
+        if 'reset_email_sent' not in st.session_state:
+            st.session_state['reset_email_sent'] = False
+        if 'reset_token_email' not in st.session_state:
+            st.session_state['reset_token_email'] = None
 
-    return {"success": True, "message": "Password reset successfully."}
+        if not st.session_state['reset_email_sent']:
+            st.info("Enter your email address to receive a password reset OTP.")
+            with st.form("request_reset_form"):
+                email = st.text_input("Email", key="reset_request_email").strip()
+                request_button = st.form_submit_button("Send Reset OTP")
 
-def verify_token(token):
-    try:
-        email = serializer.loads(token, max_age=3600)  # 1 hour token
-        return {"status": True, "email": email}
-    except SignatureExpired:
-        return {"status": False, "message": "Token expired."}
-    except BadSignature:
-        return {"status": False, "message": "Invalid token."}
+                if request_button:
+                    user_data = self.user_manager.get_user_by_email(email)
+                    if user_data:
+                        otp = self.email_utils.generate_otp()
+                        if self.user_manager.store_otp(email, otp):
+                            # In a real app, create a unique, time-limited reset link/token
+                            # For simplicity, we'll just send OTP to email and then verify OTP in next step
+                            # A real link would be something like:
+                            # reset_link = f"{st.secrets.get('APP_URL')}/?page=reset_password&token={otp}&email={email}"
+                            # And the user would navigate to that link with token in URL params.
+                            # For Streamlit, it's easier to keep state in session.
+                            
+                            # For now, just send the OTP to the email
+                            if self.email_utils.send_verification_email(email, otp): # Reusing verification email for OTP
+                                st.success("A password reset OTP has been sent to your email.")
+                                st.session_state['reset_email_sent'] = True
+                                st.session_state['reset_token_email'] = email
+                                st.experimental_rerun()
+                            else:
+                                st.error("Failed to send reset OTP. Please try again.")
+                        else:
+                            st.error("Failed to store reset OTP. Please try again.")
+                    else:
+                        st.error("Email not found.")
+        else:
+            st.info(f"Enter the OTP sent to {st.session_state['reset_token_email']} and your new password.")
+            with st.form("reset_password_form"):
+                otp_input = st.text_input("Enter OTP", key="reset_otp_input").strip()
+                new_password = st.text_input("New Password", type="password", key="new_password_input")
+                confirm_new_password = st.text_input("Confirm New Password", type="password", key="confirm_new_password_input")
+                reset_button = st.form_submit_button("Reset Password")
+
+                if reset_button:
+                    email = st.session_state['reset_token_email']
+                    if not new_password or not confirm_new_password:
+                        st.error("New password fields are required.")
+                    elif new_password != confirm_new_password:
+                        st.error("New passwords do not match.")
+                    elif len(new_password) < 6:
+                        st.error("New password must be at least 6 characters long.")
+                    elif self.user_manager.verify_otp(email, otp_input):
+                        hashed_new_password = self.password_utils.hash_password(new_password)
+                        if self.user_manager.update_user_password(email, hashed_new_password):
+                            st.success("Your password has been reset successfully. You can now log in.")
+                            del st.session_state['reset_email_sent']
+                            del st.session_state['reset_token_email']
+                            # Redirect to login page
+                            st.session_state['auth_page_selection'] = 'Login' # Set default to Login
+                            st.experimental_rerun()
+                        else:
+                            st.error("Failed to update password. Please try again.")
+                    else:
+                        st.error("Invalid OTP or OTP expired. Please try again or re-send request.")
