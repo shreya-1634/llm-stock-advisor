@@ -2,8 +2,11 @@
 
 import streamlit as st
 import pandas as pd
-import time # For simulation of long processes
+import time # For simulating loading times or delays
+import os   # For path handling
+import json # For loading config.json
 
+# Import custom modules from your project structure
 from auths.auth import AuthManager
 from core.data_fetcher import DataFetcher
 from core.visualization import Visualization
@@ -11,10 +14,11 @@ from core.news_analyzer import NewsAnalyzer
 from core.predictor import Predictor
 from core.trading_engine import TradingEngine
 from utils.session_utils import SessionManager
-from db.user_manager import UserManager # For potential admin features or logging
+from db.user_manager import UserManager # Used for logging user activity
 
 
-# Initialize managers
+# --- Initialize Managers ---
+# These instances will be used throughout the application to perform specific tasks.
 auth_manager = AuthManager()
 data_fetcher = DataFetcher()
 visualization = Visualization()
@@ -22,16 +26,54 @@ news_analyzer = NewsAnalyzer()
 predictor = Predictor()
 trading_engine = TradingEngine()
 session_manager = SessionManager()
-user_db = UserManager() # For logging and potential admin features
+user_db = UserManager() # Instance to interact with the user database (for logging etc.)
+
+
+# --- Custom CSS Injection ---
+# Function to load and inject custom CSS from static/styles.css
+def load_css(file_name="styles.css"):
+    css_path = os.path.join("static", file_name)
+    if os.path.exists(css_path):
+        with open(css_path) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        st.warning(f"CSS file not found at {css_path}. Custom styles may not apply.")
+
+# --- Static UI Configuration Loading ---
+# Function to load UI configuration from static/config.json
+def load_static_config(file_name="config.json"):
+    config_path = os.path.join("static", file_name)
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            st.error(f"Error decoding {file_name}: {e}")
+            return {}
+    return {} # Return empty dict if file not found
 
 # --- Streamlit Page Configuration ---
+# Set general page layout and title. This must be the first Streamlit command.
 st.set_page_config(layout="wide", page_title="AI Stock Advisor")
 
+# Load and apply custom CSS immediately after page configuration
+load_css()
+
+# Load static UI configuration (e.g., for dynamic text or colors in the app)
+static_ui_config = load_static_config()
+# Example of using static_ui_config (you can expand this as needed)
+app_name = static_ui_config.get("app_info", {}).get("app_name", "AI Stock Advisor")
+
+
+# --- Authentication UI Function ---
 def auth_sidebar_ui():
-    """Handles the authentication UI in the sidebar."""
+    """
+    Handles the authentication (Login, Sign Up, Reset Password) UI
+    displayed in the Streamlit sidebar when a user is not logged in.
+    """
     st.sidebar.title("Account Access")
     
-    # Store the chosen page in session state to maintain selection across reruns
+    # Use session state to remember the last selected authentication page
     if 'auth_page_selection' not in st.session_state:
         st.session_state['auth_page_selection'] = 'Login'
 
@@ -41,6 +83,7 @@ def auth_sidebar_ui():
         index=auth_page_options.index(st.session_state['auth_page_selection'])
     )
 
+    # Display the selected authentication form
     if st.session_state['auth_page_selection'] == "Login":
         auth_manager.login_ui()
     elif st.session_state['auth_page_selection'] == "Sign Up":
@@ -48,27 +91,34 @@ def auth_sidebar_ui():
     elif st.session_state['auth_page_selection'] == "Reset Password":
         auth_manager.reset_password_ui()
 
-    # After any auth action, if logged in, rerun to clear auth forms and show main app
+    # If a user successfully logs in/signs up, rerun the app to transition to the main UI
     if session_manager.is_logged_in():
         st.experimental_rerun()
 
+
+# --- Main Application UI Function ---
 def main_app_ui():
-    """Main application UI visible after successful login."""
+    """
+    Contains the core functionality and UI elements of the AI Stock Advisor,
+    displayed only after a user has successfully logged in.
+    """
+    # Display user info and logout button in the sidebar
     st.sidebar.title(f"Welcome, {session_manager.get_current_user_email()}!")
     st.sidebar.write(f"Role: **{session_manager.get_current_user_role().capitalize()}**")
     if st.sidebar.button("Logout", key="sidebar_logout_button"):
         session_manager.logout_user()
-        st.experimental_rerun()
+        st.experimental_rerun() # Rerun to go back to authentication screen
 
-    st.title("AI Stock Advisor")
+    st.title(app_name) # Use the app name from config.json
     st.markdown("---")
 
-    # Ticker input
+    # --- Ticker Input and Period Selection ---
+    # Use columns for better layout of ticker input and period selection
     col_ticker, col_period = st.columns([0.7, 0.3])
     with col_ticker:
         ticker_symbol = st.text_input("Enter Stock Ticker Symbol (e.g., AAPL, MSFT):", "AAPL", key="ticker_input").upper().strip()
     with col_period:
-        # Define mapping for periods (yfinance compatible)
+        # Define mapping for periods (compatible with yfinance)
         period_options = {
             "1 Day": "1d",
             "5 Days": "5d",
@@ -82,15 +132,17 @@ def main_app_ui():
             "Year To Date": "ytd",
             "Max": "max"
         }
+        # Select box for period selection
         selected_period_label = st.selectbox(
             "Select Period", 
             list(period_options.keys()), 
             index=5, # Default to "1 Year"
             key="period_selector"
         )
-        historical_period = period_options[selected_period_label]
+        historical_period = period_options[selected_period_label] # Get the yfinance-compatible period string
 
 
+    # --- Analyze Stock Button ---
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
             st.warning("Please enter a ticker symbol.")
@@ -98,67 +150,76 @@ def main_app_ui():
 
         st.subheader(f"Analysis for {ticker_symbol}")
 
-        # 1. Fetch Data
+        # 1. Fetch Historical Data
         with st.spinner(f"Fetching historical data for the last {selected_period_label}..."):
             df = data_fetcher.fetch_historical_data(ticker_symbol, period=historical_period)
             if df.empty:
-                st.error(f"Could not fetch data for {ticker_symbol} for the period {selected_period_label}. Please check the ticker symbol or try again later.")
+                st.error(f"Could not fetch data for {ticker_symbol} for the period {selected_period_label}. "
+                         "Please check the ticker symbol or try again later.")
                 user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_failed", f"Ticker: {ticker_symbol}, Period: {historical_period}")
                 return
             user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_success", f"Ticker: {ticker_symbol}, Period: {historical_period}")
 
-        # 2. Calculate Indicators
+        # 2. Calculate Technical Indicators (RSI, MACD)
         with st.spinner("Calculating technical indicators..."):
             df['RSI'] = data_fetcher.calculate_rsi(df)
             macd_df = data_fetcher.calculate_macd(df)
-            df = df.join(macd_df)
-            # You can add more indicators here like Bollinger Bands:
+            df = df.join(macd_df) # Join MACD columns back to the main DataFrame
+            # You can add more indicators here if desired (e.g., Bollinger Bands)
             # bb_df = data_fetcher.calculate_bollinger_bands(df)
             # df = df.join(bb_df)
 
 
-        # 3. Display Charts (Permission-gated)
+        # 3. Display Stock Charts (Permission-gated)
         st.markdown("### Stock Charts")
         if session_manager.has_permission("view_charts_basic"):
-            col1, col2 = st.columns(2)
-            with col1:
+            col_chart_static, col_chart_interactive = st.columns(2)
+            with col_chart_static:
                 st.write("#### Static Candlestick Chart (mplfinance)")
                 fig_mpl = visualization.plot_candlestick(df, ticker_symbol)
-                st.pyplot(fig_mpl)
-            with col2:
+                st.pyplot(fig_mpl) # Display matplotlib figure
+            with col_chart_interactive:
                 if session_manager.has_permission("view_charts_advanced"):
                     st.write("#### Interactive Candlestick Chart (Plotly)")
                     fig_plotly = visualization.plot_interactive_candlestick_plotly(df, ticker_symbol)
-                    st.plotly_chart(fig_plotly, use_container_width=True)
+                    st.plotly_chart(fig_plotly, use_container_width=True) # Display Plotly figure
                 else:
                     st.info("Upgrade to a Premium plan for interactive charts with indicators.")
         else:
             st.info("Login or upgrade your plan to view stock charts.")
 
 
-        # 4. Fetch and Display News (Permission-gated)
+        # 4. Fetch and Display Live News & Headlines (Permission-gated)
         st.markdown("### Latest News")
         if session_manager.has_permission("view_news_headlines"):
             with st.spinner("Fetching live news..."):
                 news_articles = news_analyzer.get_news_headlines(ticker_symbol)
-                st.session_state['news_sentiment'] = 'neutral' # Initialize news sentiment
+                # Initialize news sentiment for recommendation engine
+                st.session_state['news_sentiment'] = 'neutral' 
 
                 if news_articles:
                     for i, article in enumerate(news_articles):
                         st.markdown(f"**{i+1}. [{article.get('title', 'No Title')}]({article.get('url', '#')})**")
                         st.write(article.get('description', 'No description available.'))
                         
+                        # Display news sentiment if user has permission
                         if session_manager.has_permission("view_news_sentiment"):
                             st.write(f"Sentiment: **{article.get('sentiment', 'N/A').capitalize()}**")
                             # Simple aggregation for overall sentiment (can be improved)
-                            if article.get('sentiment') == 'positive': st.session_state['news_sentiment'] = 'positive'
-                            elif article.get('sentiment') == 'negative': st.session_state['news_sentiment'] = 'negative'
+                            if article.get('sentiment') == 'positive': 
+                                st.session_state['news_sentiment'] = 'positive'
+                            elif article.get('sentiment') == 'negative': 
+                                st.session_state['news_sentiment'] = 'negative'
                         
-                        st.write(f"Source: {article.get('source', 'N/A')} | Published: {pd.to_datetime(article.get('publishedAt')).strftime('%Y-%m-%d %H:%M') if article.get('publishedAt') and article.get('publishedAt') != 'N/A' else 'N/A'}")
+                        # Format and display publication date
+                        published_at = article.get('publishedAt')
+                        formatted_date = pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M') if published_at and published_at != 'N/A' else 'N/A'
+                        st.write(f"Source: {article.get('source', 'N/A')} | Published: {formatted_date}")
                         st.markdown("---")
                 else:
                     st.info(f"No recent news found for {ticker_symbol}.")
                 
+                # Inform user about sentiment analysis if they don't have permission
                 if not session_manager.has_permission("view_news_sentiment") and session_manager.has_permission("view_news_headlines"):
                     st.info("Upgrade to Premium to see news sentiment analysis.")
         else:
@@ -170,8 +231,7 @@ def main_app_ui():
         predicted_prices_series = pd.Series(dtype='float64') # Initialize empty series
         if session_manager.has_permission("get_predictions"):
             with st.spinner("Predicting future prices (this may take a moment, especially on first load)..."):
-                # Ensure model is loaded (it will load if not already)
-                predictor.load_model() 
+                predictor.load_model() # Ensure model is loaded (it will load if not already)
                 if predictor.model:
                     predicted_prices_series = predictor.predict_prices(df)
                     if not predicted_prices_series.empty:
@@ -203,7 +263,8 @@ def main_app_ui():
         st.markdown("### Recommendation")
         if session_manager.has_permission("get_recommendations"):
             with st.spinner("Generating recommendation..."):
-                if not predicted_prices_series.empty and not df.empty:
+                # Ensure we have data for recommendation
+                if not predicted_prices_series.empty and not df.empty and 'RSI' in df.columns and 'MACD_Diff' in df.columns:
                     recommendation = trading_engine.generate_recommendation(
                         predicted_price=predicted_prices_series.iloc[0],
                         current_price=df['Close'].iloc[-1],
@@ -221,13 +282,15 @@ def main_app_ui():
                         st.warning(f"**Recommendation: {recommendation}** - Market conditions are uncertain or balanced, consider holding.")
                     user_db._log_activity(session_manager.get_current_user_email(), "recommendation_given", f"Ticker: {ticker_symbol}, Rec: {recommendation}")
                 else:
-                    st.warning("Cannot generate recommendation without prediction data.")
+                    st.warning("Cannot generate recommendation without complete data (prediction, current price, indicators).")
         else:
             st.info("Upgrade to a Premium plan to receive AI-powered Buy/Sell/Hold recommendations.")
 
+
 # --- Main Application Flow ---
+# This block determines whether to show the authentication UI or the main app UI.
 if __name__ == "__main__":
     if not session_manager.is_logged_in():
-        auth_sidebar_ui()
+        auth_sidebar_ui() # Show authentication forms
     else:
-        main_app_ui()
+        main_app_ui() # Show the main stock analysis application
