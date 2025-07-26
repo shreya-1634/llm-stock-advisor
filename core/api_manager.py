@@ -1,84 +1,52 @@
+# your_project/core/api_manager.py
+
 import os
-import smtplib
-import ssl
-from email.message import EmailMessage
-import openai
 import requests
 from dotenv import load_dotenv
 
-# Load .env variables
-load_dotenv()
+load_dotenv() # Load environment variables from .env
 
 class APIManager:
     def __init__(self):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.news_api_key = os.getenv("NEWS_API_KEY")
-        self.email_sender = os.getenv("EMAIL_SENDER")
-        self.email_password = os.getenv("EMAIL_PASSWORD")
-        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", 587))
+        # self.alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY") # If you use Alpha Vantage directly
 
-        # Setup OpenAI
-        openai.api_key = self.openai_api_key
-
-    # -------------------- OPENAI -------------------- #
-    def get_openai_response(self, prompt, model="gpt-4", temperature=0.7):
-        try:
-            response = openai.ChatCompletion.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature
-            )
-            return response['choices'][0]['message']['content']
-        except Exception as e:
-            print(f"[OpenAI Error] {e}")
-            return None
-
-    # -------------------- NEWS API -------------------- #
-    def get_news_headlines(self, ticker, num_articles=5):
-        try:
-            url = (
-                f"https://newsapi.org/v2/everything?q={ticker}"
-                f"&sortBy=publishedAt&language=en&pageSize={num_articles}&apiKey={self.news_api_key}"
-            )
-            response = requests.get(url)
-            data = response.json()
-
-            if data["status"] != "ok":
-                print("[NewsAPI Error]", data)
-                return []
-
-            articles = [
-                {
-                    "title": article["title"],
-                    "url": article["url"],
-                    "source": article["source"]["name"],
-                    "published_at": article["publishedAt"]
-                }
-                for article in data.get("articles", [])
-            ]
-            return articles
-        except Exception as e:
-            print(f"[NewsAPI Error] {e}")
+    def fetch_news_articles(self, query: str, limit: int = 10) -> list:
+        """
+        Fetches news articles related to a query (e.g., ticker symbol) from NewsAPI.
+        NewsAPI: https://newsapi.org/
+        """
+        if not self.news_api_key:
+            print("Error: News API key not set in .env. Cannot fetch news.")
             return []
 
-    # -------------------- EMAIL OTP -------------------- #
-    def send_email_otp(self, receiver_email, otp_code):
+        # NewsAPI endpoint for general search (everything)
+        # You can also use /v2/top-headlines for more curated news
+        url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.news_api_key}&language=en&sortBy=publishedAt"
+        
         try:
-            subject = "Your OTP Code"
-            body = f"Your verification code is: {otp_code}"
-            em = EmailMessage()
-            em["From"] = self.email_sender
-            em["To"] = receiver_email
-            em["Subject"] = subject
-            em.set_content(body)
-
-            context = ssl.create_default_context()
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as smtp:
-                smtp.starttls(context=context)
-                smtp.login(self.email_sender, self.email_password)
-                smtp.send_message(em)
-            return True
+            response = requests.get(url, timeout=10) # Add timeout to prevent hanging
+            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+            data = response.json()
+            return data.get('articles', [])[:limit]
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching news for '{query}': {e}")
+            return []
         except Exception as e:
-            print(f"[Email OTP Error] {e}")
-            return False
+            print(f"An unexpected error occurred while fetching news: {e}")
+            return []
+
+    # Example of how you might add another API (e.g., if you choose Alpha Vantage for some data)
+    # def fetch_alpha_vantage_data(self, symbol: str, function: str, interval: str = '5min') -> dict:
+    #     if not self.alpha_vantage_api_key:
+    #         print("Alpha Vantage API key not set in .env.")
+    #         return {}
+    #     
+    #     url = f"https://www.alphavantage.co/query?function={function}&symbol={symbol}&interval={interval}&apikey={self.alpha_vantage_api_key}"
+    #     try:
+    #         response = requests.get(url, timeout=10)
+    #         response.raise_for_status()
+    #         return response.json()
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Error fetching Alpha Vantage data: {e}")
+    #         return {}
