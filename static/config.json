@@ -1,23 +1,22 @@
+// your_project/static/config.json
+
 {
-  "theme": {
-    "primaryColor": "#00bcd4",
-    "backgroundColor": "#ffffff",
-    "secondaryBackgroundColor": "#f0f2f6",
-    "textColor": "#262730",
-    "font": "sans serif"
-  },
-  "layout": "wide",
-  "initial_sidebar_state": "expanded",
-  "showSidebar": true,
-  "navigation": {
-    "sections": [
-      "Home",
-      "Sign Up / Login",
-      "Dashboard",
-      "Chart Analysis",
-      "Prediction",
-      "News Feed",
-      "AI Actions"
-    ]
-  }
+    "ui_settings": {
+        "primary_color": "#2196F3",  // A blue shade
+        "background_color": "#0E1117", // Dark background for Streamlit dark theme
+        "secondary_background_color": "#262730",
+        "text_color": "#FAFAFA",
+        "font": "sans-serif",
+        "header_font_size": "2.5em",
+        "body_font_size": "1em",
+        "chart_palette": ["#4CAF50", "#FF9800", "#F44336", "#2196F3", "#9C27B0"] // Example colors for charts
+    },
+    "layout_options": {
+        "sidebar_width": "300px",
+        "content_padding": "1rem 2rem"
+    },
+    "app_info": {
+        "app_name": "AI Stock Advisor",
+        "version": "1.0.0"
+    }
 }
