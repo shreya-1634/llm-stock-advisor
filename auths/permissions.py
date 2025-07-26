@@ -1,59 +1,37 @@
-import json
-import os
+# your_project/auths/permissions.py
 
-PERMISSIONS_FILE = "data/permissions.json"
+class Permissions:
+    ROLES = {
+        "guest": [], # Non-logged-in users
+        "free": [
+            "view_charts_basic",
+            "view_news_headlines"
+        ],
+        "premium": [
+            "view_charts_basic",
+            "view_charts_advanced", # e.g., interactive plotly charts with indicators
+            "view_news_headlines",
+            "view_news_sentiment", # If you add sentiment analysis
+            "get_predictions",
+            "get_recommendations",
+            "view_volatility"
+        ],
+        "admin": [ # Example admin role with all permissions
+            "view_charts_basic",
+            "view_charts_advanced",
+            "view_news_headlines",
+            "view_news_sentiment",
+            "get_predictions",
+            "get_recommendations",
+            "view_volatility",
+            "manage_users"
+        ]
+    }
 
-# Default permission structure
-DEFAULT_PERMISSIONS = {
-    "can_fetch_data": True,
-    "can_see_charts": True,
-    "can_view_indicators": True,
-    "can_view_news": True,
-    "can_predict_prices": True,
-    "can_view_volatility": True,
-    "can_get_recommendation": True,
-    "can_use_ai_trading": False  # Admin or Pro users only
-}
-
-
-def load_permissions():
-    if not os.path.exists(PERMISSIONS_FILE):
-        return {}
-    with open(PERMISSIONS_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_permissions(permissions):
-    with open(PERMISSIONS_FILE, "w") as f:
-        json.dump(permissions, f, indent=4)
-
-
-def initialize_user_permissions(email):
-    permissions = load_permissions()
-    if email not in permissions:
-        permissions[email] = DEFAULT_PERMISSIONS
-        save_permissions(permissions)
-
-
-def get_user_permissions(email):
-    permissions = load_permissions()
-    return permissions.get(email, DEFAULT_PERMISSIONS)
-
-
-def update_user_permission(email, key, value):
-    permissions = load_permissions()
-    if email in permissions:
-        permissions[email][key] = value
-        save_permissions(permissions)
-
-
-def check_permission(email, permission_key):
-    user_permissions = get_user_permissions(email)
-    return user_permissions.get(permission_key, False)
-
-
-# For Streamlit UI or backend decisions
-def require_permission(email, permission_key, feature_name):
-    if not check_permission(email, permission_key):
-        return f"🚫 You do not have permission to use '{feature_name}'"
-    return None
+    @staticmethod
+    def check_permission(user_role: str, feature_name: str) -> bool:
+        """
+        Checks if a given user_role has access to a specific feature.
+        """
+        allowed_features = Permissions.ROLES.get(user_role, [])
+        return feature_name in allowed_features
