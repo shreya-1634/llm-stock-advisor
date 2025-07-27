@@ -264,10 +264,6 @@ A powerful cloud platform that offers a free tier for web services.
 
 Contributions are welcome\! If you have suggestions for improvements, bug fixes, or new features, please open an issue or submit a pull request.
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
-
 ## Contact
 
 For any questions or inquiries, please contact:
