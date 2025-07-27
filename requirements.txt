@@ -5,11 +5,7 @@ pandas>=2.0.0
 numpy>=1.26.0
 yfinance>=0.2.0
 ta>=0.10.0
-tensorflow==2.11.0          # This line should be consistent and singular.
-                            # If you want CPU-only: tensorflow-cpu==2.11.0
-                            # If you want a newer version (e.g., 2.16.1): tensorflow==2.16.1
-                            # But choose only ONE.
-
+tensorflow-cpu==2.10.0
 scikit-learn>=1.4.0
 bcrypt>=4.1.0
 requests>=2.31.0
