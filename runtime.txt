@@ -1,2 +1,2 @@
 # your_project/runtime.txt
-python-3.10.13
+python-3
