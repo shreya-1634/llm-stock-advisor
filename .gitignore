@@ -1,23 +1,35 @@
 # your_project/.gitignore
 
-# Python
+# Python-specific
 __pycache__/
 *.pyc
 *.egg-info/
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
+*.env                # IMPORTANT: Keep your .env file secret!
+.venv/               # Virtual environment directory (Linux/macOS)
+venv/                # Virtual environment directory (Windows)
+dist/                # Python distributions
 
-# Environment variables
-.env
-
-# Trained Models (can be large)
-data/model/*.h5
-data/model/*.keras
-
-# Cached data (optional, if you regenerate it often)
-data/ticker_cache/
+# IDE-specific (add your IDE's typical ignore files)
+.vscode/             # Visual Studio Code
+.idea/               # IntelliJ IDEA / PyCharm
+*.sublime-project
+*.sublime-workspace
 
 # Streamlit specific
-.streamlit/
+.streamlit/          # Streamlit's internal config/cache (if you use it)
+
+# Operating System Files
+.DS_Store            # macOS
+Thumbs.db            # Windows
+
+# Generated Files / Data
+data/model/*.h5      # Trained Keras/TensorFlow models
+data/model/*.keras   # New Keras save format
+data/model/*.pkl     # Saved scikit-learn scalers, etc.
+data/ticker_cache/   # Cached historical data
+data/users.db        # SQLite database file
+
+# Pytest / Testing artifacts
+.pytest_cache/
+htmlcov/             # Coverage reports
+.coverage
