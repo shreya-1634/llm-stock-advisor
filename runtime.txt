@@ -1,1 +1,2 @@
-python-3.9.16
+# your_project/runtime.txt
+python-3.10.13
