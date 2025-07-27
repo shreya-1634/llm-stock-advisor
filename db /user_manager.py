@@ -1,5 +1,5 @@
 # your_project/db/user_manager.py
-
+import os # Added import for os in user_manager.py
 import sqlite3
 import json
 import time
@@ -146,4 +146,3 @@ class UserManager:
         conn.close()
         return logs
 
-import os # Added import for os in user_manager.py
