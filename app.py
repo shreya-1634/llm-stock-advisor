@@ -15,6 +15,7 @@ from core.predictor import Predictor
 from core.trading_engine import TradingEngine
 from utils.session_utils import SessionManager
 from db.user_manager import UserManager # Used for logging user activity
+from utils.formatting import Formatting # For consistent data display
 
 
 # --- Initialize Managers ---
@@ -204,16 +205,17 @@ def main_app_ui():
                         
                         # Display news sentiment if user has permission
                         if session_manager.has_permission("view_news_sentiment"):
-                            st.write(f"Sentiment: **{article.get('sentiment', 'N/A').capitalize()}**")
+                            sentiment = article.get('sentiment', 'N/A')
+                            st.write(f"Sentiment: **{sentiment.capitalize()}**")
                             # Simple aggregation for overall sentiment (can be improved)
-                            if article.get('sentiment') == 'positive': 
+                            if sentiment == 'positive': 
                                 st.session_state['news_sentiment'] = 'positive'
-                            elif article.get('sentiment') == 'negative': 
+                            elif sentiment == 'negative': 
                                 st.session_state['news_sentiment'] = 'negative'
                         
-                        # Format and display publication date
+                        # Format and display publication date using Formatting utility
                         published_at = article.get('publishedAt')
-                        formatted_date = pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M') if published_at and published_at != 'N/A' else 'N/A'
+                        formatted_date = Formatting.format_date(pd.to_datetime(published_at), date_format="%Y-%m-%d %H:%M") if published_at and published_at != 'N/A' else 'N/A'
                         st.write(f"Source: {article.get('source', 'N/A')} | Published: {formatted_date}")
                         st.markdown("---")
                 else:
@@ -237,7 +239,7 @@ def main_app_ui():
                     if not predicted_prices_series.empty:
                         st.write("Predicted prices for the next few trading days:")
                         st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_series), use_container_width=True)
-                        st.success(f"Predicted price for the next trading day: **${predicted_prices_series.iloc[0]:.2f}**")
+                        st.success(f"Predicted price for the next trading day: **{Formatting.format_currency(predicted_prices_series.iloc[0])}**")
                         user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
                     else:
                         st.warning("Could not generate price prediction. Ensure model is trained and data is sufficient.")
@@ -254,7 +256,7 @@ def main_app_ui():
         if session_manager.has_permission("view_volatility"):
             with st.spinner("Calculating market volatility..."):
                 current_volatility = trading_engine.calculate_volatility(df['Close'])
-                st.info(f"Current Annualized Volatility (last 20 days): **{current_volatility:.2f}**")
+                st.info(f"Current Annualized Volatility (last 20 days): **{Formatting.format_percentage(current_volatility)}**")
         else:
             st.info("Upgrade to Premium to view market volatility.")
 
