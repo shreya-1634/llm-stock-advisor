@@ -187,7 +187,7 @@ class AuthManager:
                             del st.session_state['reset_token_email']
                             # Redirect to login page
                             st.session_state['auth_page_selection'] = 'Login' # Set default to Login
-                            st.experimental_rerun()
+                            st.rerun()
                         else:
                             st.error("Failed to update password. Please try again.")
                     else:
