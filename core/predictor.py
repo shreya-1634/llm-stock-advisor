@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import os
+from typing import Optional
 
 class Predictor:
     def __init__(self):
