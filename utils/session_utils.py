@@ -5,6 +5,7 @@ import os
 import secrets
 from dotenv import load_dotenv
 from auths.permissions import Permissions
+from typing import Optional
 
 load_dotenv() # Load environment variables
 
