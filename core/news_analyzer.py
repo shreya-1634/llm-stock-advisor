@@ -8,8 +8,15 @@ import pandas as pd
 # Download VADER lexicon for sentiment analysis if not already downloaded
 try:
     nltk.data.find('sentiment/vader_lexicon.zip')
-except nltk.downloader.DownloadError:
-    nltk.download('vader_lexicon')
+# Original: except nltk.downloader.DownloadError:
+except Exception: # <--- CHANGE THIS LINE TO CATCH A GENERAL EXCEPTION
+    print("VADER lexicon not found, attempting to download...")
+    try:
+        nltk.download('vader_lexicon')
+        print("VADER lexicon downloaded successfully.")
+    except Exception as e:
+        print(f"Error downloading VADER lexicon: {e}")
+        print("Sentiment analysis may not work correctly.")
 
 class NewsAnalyzer:
     def __init__(self):
