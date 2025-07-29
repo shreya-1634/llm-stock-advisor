@@ -94,7 +94,7 @@ def auth_sidebar_ui():
 
     # If a user successfully logs in/signs up, rerun the app to transition to the main UI
     if session_manager.is_logged_in():
-        st.experimental_rerun()
+        st.rerun()
 
 
 # --- Main Application UI Function ---
@@ -108,7 +108,7 @@ def main_app_ui():
     st.sidebar.write(f"Role: **{session_manager.get_current_user_role().capitalize()}**")
     if st.sidebar.button("Logout", key="sidebar_logout_button"):
         session_manager.logout_user()
-        st.experimental_rerun() # Rerun to go back to authentication screen
+        st.rerun() # Rerun to go back to authentication screen
 
     st.title(app_name) # Use the app name from config.json
     st.markdown("---")
