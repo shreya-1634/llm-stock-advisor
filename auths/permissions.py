@@ -2,21 +2,26 @@
 
 class Permissions:
     ROLES = {
-        "guest": [], # Non-logged-in users
+        "guest": [], # Non-logged-in users (will still see upgrade messages or be redirected to login)
         "free": [
             "view_charts_basic",
-            "view_news_headlines"
-        ],
-        "premium": [
-            "view_charts_basic",
-            "view_charts_advanced", # e.g., interactive plotly charts with indicators
+            "view_charts_advanced", # Grant access to interactive charts
             "view_news_headlines",
-            "view_news_sentiment", # If you add sentiment analysis
+            "view_news_sentiment",  # Grant access to news sentiment
+            "get_predictions",      # Grant access to price predictions
+            "get_recommendations",  # Grant access to buy/sell/hold recommendations
+            "view_volatility"       # Grant access to market volatility
+        ],
+        "premium": [ # Keep premium role for future differentiation if needed, but it's now redundant for functionality
+            "view_charts_basic",
+            "view_charts_advanced",
+            "view_news_headlines",
+            "view_news_sentiment",
             "get_predictions",
             "get_recommendations",
             "view_volatility"
         ],
-        "admin": [ # Example admin role with all permissions
+        "admin": [
             "view_charts_basic",
             "view_charts_advanced",
             "view_news_headlines",
@@ -24,7 +29,7 @@ class Permissions:
             "get_predictions",
             "get_recommendations",
             "view_volatility",
-            "manage_users"
+            "manage_users" # Admin-specific permission
         ]
     }
 
