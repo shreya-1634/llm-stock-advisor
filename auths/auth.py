@@ -113,7 +113,7 @@ class AuthManager:
                             self.session_manager.login_user(user_data['email'], user_data['role'])
                             self.user_manager._log_activity(email, "login", "Successful login.")
                             st.success("Logged in successfully!")
-                            st.experimental_rerun() # Rerun to show main app content
+                            st.rerun() # Rerun to show main app content
                         else:
                             st.warning("Please verify your email first to log in.")
                             st.session_state['signup_email_for_verification'] = email # Allow user to verify now
