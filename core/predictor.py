@@ -10,11 +10,9 @@ import joblib # Ensure joblib is imported for scaler
 
 class Predictor:
     def __init__(self):
-        self.model_path = "data/model/lstm_model.h5"
-        self.scaler_path = "data/model/scaler.pkl"
-        self.model = None
-        self.scaler = None
-        self.look_back = 60
+        # We will not load a model, we'll return a placeholder prediction
+        self.model_available = False 
+        self.scaler = MinMaxScaler(feature_range=(0, 1))
 
     def _load_scaler(self):
         print(f"Attempting to load scaler from: {self.scaler_path}")
