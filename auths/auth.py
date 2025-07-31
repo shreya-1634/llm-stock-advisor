@@ -2,10 +2,10 @@
 
 import streamlit as st
 import time
-from db.user_manager import UserManager
+from db.user_manager import UserManager # <-- IMPORT FIXED
 from utils.password_utils import PasswordUtils
 from utils.email_utils import EmailUtils
-from utils.session_utils import SessionManager
+from utils.session_utils import SessionManager # <-- IMPORT FIXED
 
 class AuthManager:
     def __init__(self):
@@ -55,7 +55,6 @@ class AuthManager:
 
 
     def verify_email_ui(self, email_for_verification: str):
-        """Renders the OTP verification form."""
         st.subheader(f"Verify Email for {email_for_verification}")
         user_data = self.user_manager.get_user_by_email(email_for_verification)
 
@@ -81,7 +80,7 @@ class AuthManager:
                         del st.session_state['signup_email_for_verification']
                 else:
                     st.error("Invalid OTP or OTP expired. Please try again or resend.")
-            
+
             if resend_otp_button:
                 otp = self.email_utils.generate_otp()
                 if self.user_manager.store_otp(email_for_verification, otp):
@@ -92,9 +91,7 @@ class AuthManager:
                 else:
                     st.error("Failed to generate/store new OTP.")
 
-
     def login_ui(self):
-        """Renders the user login form and handles authentication."""
         st.subheader("Login to Your Account")
         with st.form("login_form"):
             email = st.text_input("Email", key="login_email_input").strip()
@@ -113,10 +110,10 @@ class AuthManager:
                             self.session_manager.login_user(user_data['email'], user_data['role'])
                             self.user_manager._log_activity(email, "login", "Successful login.")
                             st.success("Logged in successfully!")
-                            st.rerun() # Rerun to show main app content
+                            st.rerun() # <--- FIXED
                         else:
                             st.warning("Please verify your email first to log in.")
-                            st.session_state['signup_email_for_verification'] = email # Allow user to verify now
+                            st.session_state['signup_email_for_verification'] = email
                     else:
                         st.error("Invalid email or password.")
                         self.user_manager._log_activity(email, "login_failed", "Invalid password.")
@@ -125,9 +122,7 @@ class AuthManager:
                     self.user_manager._log_activity(email, "login_failed", "Email not found.")
 
     def reset_password_ui(self):
-        """Renders the password reset request and reset forms."""
         st.subheader("Reset Your Password")
-
         if 'reset_email_sent' not in st.session_state:
             st.session_state['reset_email_sent'] = False
         if 'reset_token_email' not in st.session_state:
@@ -144,19 +139,11 @@ class AuthManager:
                     if user_data:
                         otp = self.email_utils.generate_otp()
                         if self.user_manager.store_otp(email, otp):
-                            # In a real app, create a unique, time-limited reset link/token
-                            # For simplicity, we'll just send OTP to email and then verify OTP in next step
-                            # A real link would be something like:
-                            # reset_link = f"{st.secrets.get('APP_URL')}/?page=reset_password&token={otp}&email={email}"
-                            # And the user would navigate to that link with token in URL params.
-                            # For Streamlit, it's easier to keep state in session.
-                            
-                            # For now, just send the OTP to the email
-                            if self.email_utils.send_verification_email(email, otp): # Reusing verification email for OTP
+                            if self.email_utils.send_verification_email(email, otp):
                                 st.success("A password reset OTP has been sent to your email.")
                                 st.session_state['reset_email_sent'] = True
                                 st.session_state['reset_token_email'] = email
-                                st.experimental_rerun()
+                                st.rerun()
                             else:
                                 st.error("Failed to send reset OTP. Please try again.")
                         else:
@@ -185,8 +172,7 @@ class AuthManager:
                             st.success("Your password has been reset successfully. You can now log in.")
                             del st.session_state['reset_email_sent']
                             del st.session_state['reset_token_email']
-                            # Redirect to login page
-                            st.session_state['auth_page_selection'] = 'Login' # Set default to Login
+                            st.session_state['auth_page_selection'] = 'Login'
                             st.rerun()
                         else:
                             st.error("Failed to update password. Please try again.")
