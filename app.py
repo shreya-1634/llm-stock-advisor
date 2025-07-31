@@ -18,8 +18,8 @@ from utils.session_utils import SessionManager
 from db.user_manager import UserManager
 from utils.formatting import Formatting
 
-# Suppress TensorFlow Logging (as previously discussed)
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# Suppress TensorFlow Logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Initialize Managers
 auth_manager = AuthManager()
@@ -110,8 +110,7 @@ def main_app_ui():
                 user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_failed", f"Ticker: {ticker_symbol}, Period: {historical_period}")
                 return
             user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_success", f"Ticker: {ticker_symbol}, Period: {historical_period}")
-        
-        # Display current open/close prices
+
         st.write("### Current Price Information")
         current_open = df['Open'].iloc[-1]
         current_close = df['Close'].iloc[-1]
@@ -120,7 +119,7 @@ def main_app_ui():
             st.metric(label="Current Open Price", value=Formatting.format_currency(current_open))
         with col_close:
             st.metric(label="Current Close Price", value=Formatting.format_currency(current_close))
-
+        
         with st.spinner("Calculating technical indicators..."):
             df['RSI'] = data_fetcher.calculate_rsi(df)
             macd_df = data_fetcher.calculate_macd(df)
@@ -168,20 +167,23 @@ def main_app_ui():
         else:
             st.info("Login or upgrade your plan to view live news.")
         
-        # --- Future Prediction and Recommendations (UPDATED) ---
         st.markdown("### Future Price Prediction")
         predicted_prices_df = pd.DataFrame()
         if session_manager.has_permission("get_predictions"):
-            with st.spinner("Predicting future prices using placeholder model..."):
-                predicted_prices_df = predictor.predict_prices(df)
-                if not predicted_prices_df.empty:
-                    st.write("Predicted Open and Close prices for the next few trading days:")
-                    st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"${x:.2f}"), use_container_width=True)
-                    st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_df['Predicted Close']), use_container_width=True)
-                    user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
+            with st.spinner("Predicting future prices..."):
+                predictor.load_model()
+                if predictor.model:
+                    predicted_prices_df = predictor.predict_prices(df)
+                    if not predicted_prices_df.empty:
+                        st.write("Predicted Open and Close prices for the next few trading days:")
+                        st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"${x:.2f}"), use_container_width=True)
+                        st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_df['Predicted Close']), use_container_width=True)
+                        user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
+                    else:
+                        st.warning("Could not generate price prediction. Ensure model is trained and data is sufficient.")
+                        user_db._log_activity(session_manager.get_current_user_email(), "prediction_failed", f"Ticker: {ticker_symbol} - No prediction data.")
                 else:
-                    st.warning("Could not generate price prediction. Not enough data.")
-                    user_db._log_activity(session_manager.get_current_user_email(), "prediction_failed", f"Ticker: {ticker_symbol} - No prediction data.")
+                    st.warning("Prediction model not available. Please ensure it is trained and loaded correctly.")
         else:
             st.info("Upgrade to a Premium plan to access AI-powered price predictions.")
 
