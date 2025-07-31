@@ -1,0 +1,3 @@
+import joblib
+
+joblib.dump(scaler, scaler_path)
