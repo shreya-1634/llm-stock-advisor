@@ -6,45 +6,46 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import os
 from typing import Optional
+import joblib # Ensure joblib is imported for scaler
 
 class Predictor:
     def __init__(self):
         self.model_path = "data/model/lstm_model.h5"
-        self.scaler_path = "data/model/scaler.pkl" # To save/load the fitted scaler
+        self.scaler_path = "data/model/scaler.pkl"
         self.model = None
         self.scaler = None
-        self.look_back = 60 # Number of past days to look at for prediction
+        self.look_back = 60
 
     def _load_scaler(self):
-        """Loads a pre-fitted MinMaxScaler."""
-        # In a real application, you would save/load the scaler used during training
-        # For simplicity in this conceptual code, we'll re-fit for prediction if not found
-        # A more robust approach uses joblib or pickle to save/load the fitted scaler.
-        try:
-            import joblib
-            if os.path.exists(self.scaler_path):
+        print(f"Attempting to load scaler from: {self.scaler_path}")
+        if os.path.exists(self.scaler_path):
+            try:
                 self.scaler = joblib.load(self.scaler_path)
                 print("Scaler loaded successfully.")
-            else:
-                print("Scaler not found. Will create a new one for prediction (might not be ideal).")
-                self.scaler = MinMaxScaler(feature_range=(0, 1))
-        except ImportError:
-            print("Joblib not installed. Cannot load/save scaler. Using new MinMaxScaler for prediction.")
-            self.scaler = MinMaxScaler(feature_range=(0, 1))
-
+            except Exception as e:
+                print(f"ERROR: Failed to load scaler from {self.scaler_path}: {e}")
+                self.scaler = None
+        else:
+            print(f"WARNING: Scaler file not found at {self.scaler_path}.")
+            self.scaler = MinMaxScaler(feature_range=(0, 1)) # Fallback, but not ideal for prediction
 
     def load_model(self):
         """Loads the pre-trained LSTM model."""
-        if self.model is None and os.path.exists(self.model_path):
-            try:
-                self.model = tf.keras.models.load_model(self.model_path)
-                print("LSTM model loaded successfully.")
-            except Exception as e:
-                print(f"Error loading LSTM model from {self.model_path}: {e}")
+        print(f"Attempting to load model from: {self.model_path}")
+        if self.model is None: # Only try to load if not already loaded
+            if os.path.exists(self.model_path):
+                try:
+                    self.model = tf.keras.models.load_model(self.model_path)
+                    print("LSTM model loaded successfully.")
+                except Exception as e:
+                    print(f"ERROR: Failed to load LSTM model from {self.model_path}: {e}")
+                    self.model = None
+            else:
+                print(f"WARNING: Model file not found at {self.model_path}. Please ensure it's trained and committed.")
                 self.model = None
-        elif not os.path.exists(self.model_path):
-            print(f"Model not found at {self.model_path}. Please train the model first.")
-        
+        else:
+            print("Model already loaded.")
+
         self._load_scaler() # Ensure scaler is loaded when model is loaded
 
     def preprocess_data_for_prediction(self, df: pd.DataFrame) -> Optional[np.ndarray]:
