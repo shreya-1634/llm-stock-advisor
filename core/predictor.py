@@ -82,35 +82,35 @@ class Predictor:
         x_input = x_input.reshape(1, self.look_back, 1) # Reshape for LSTM: (samples, timesteps, features)
         return x_input
 
-    def predict_prices(self, df: pd.DataFrame, num_predictions: int = 5) -> pd.Series:
+    def predict_prices(self, df: pd.DataFrame, num_predictions: int = 5) -> pd.DataFrame:
         """
-        Predicts future stock prices for `num_predictions` days.
-        Returns a Pandas Series of predicted prices.
+        Generates a placeholder prediction for Open and Close prices.
+        This function replaces the ML model's prediction logic for this deployment.
+        The prediction is a simple linear extrapolation based on recent data.
         """
-        if self.model is None:
-            self.load_model()
-            if self.model is None:
-                print("Prediction aborted: LSTM model not loaded.")
-                return pd.Series(dtype='float64')
-
-        x_input = self.preprocess_data_for_prediction(df)
-        if x_input is None or x_input.size == 0:
-            return pd.Series(dtype='float64')
-
-        predictions_list = []
-        current_input = x_input
-
-        for _ in range(num_predictions):
-            predicted_scaled_price = self.model.predict(current_input, verbose=0)[0, 0]
-            predictions_list.append(predicted_scaled_price)
+        if not self.model_available:
+            if df.empty or len(df) < num_predictions:
+                return pd.DataFrame()
             
-            # Update input sequence: remove first element, add new prediction
-            current_input = np.append(current_input[:, 1:, :], [[predicted_scaled_price]], axis=1)
-
-        predicted_prices = self.scaler.inverse_transform(np.array(predictions_list).reshape(-1, 1))
+            # Simple linear extrapolation for demonstration
+            last_open = df['Open'].iloc[-1]
+            last_close = df['Close'].iloc[-1]
+            
+            # Use average daily change from the last 5 days
+            recent_changes = df[['Open', 'Close']].diff().dropna().tail(5).mean()
+            open_change = recent_changes['Open']
+            close_change = recent_changes['Close']
+            
+            predicted_data = []
+            
+            for i in range(1, num_predictions + 1):
+                last_open += open_change
+                last_close += close_change
+                predicted_data.append([last_open, last_close])
+            
+            future_dates = pd.date_range(start=df.index[-1], periods=num_predictions + 1, freq='B')[1:]
+            
+            predicted_df = pd.DataFrame(predicted_data, index=future_dates, columns=['Predicted Open', 'Predicted Close'])
+            return predicted_df
         
-        # Create a Series with future dates
-        last_date = df.index[-1]
-        future_dates = pd.date_range(start=last_date, periods=num_predictions + 1, freq='B')[1:] # Exclude last known date, get business days
-        
-        return pd.Series(predicted_prices.flatten(), index=future_dates, name='Predicted Close')
+        return pd.DataFrame() # This return statement handles the case if a model were available and the next part of the logic was missing
