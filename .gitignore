@@ -1,35 +1,64 @@
 # your_project/.gitignore
 
-# Python-specific
+# ----------------------------------------
+# Python-specific files and directories
+# ----------------------------------------
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.egg-info/
-*.env                # IMPORTANT: Keep your .env file secret!
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+sdist/
+.env                 # Your local environment variables file
 .venv/               # Virtual environment directory (Linux/macOS)
 venv/                # Virtual environment directory (Windows)
-dist/                # Python distributions
+pip-wheel-metadata/
 
-# IDE-specific (add your IDE's typical ignore files)
+# Jupyter / IPython
+.ipynb_checkpoints
+.ipyndb_checkpoints
+profile_default/
+ipython_config.py
+
+# IDE-specific files (add your own if not listed)
 .vscode/             # Visual Studio Code
 .idea/               # IntelliJ IDEA / PyCharm
 *.sublime-project
 *.sublime-workspace
+*.swp                # Vim temporary files
 
-# Streamlit specific
-.streamlit/          # Streamlit's internal config/cache (if you use it)
-
+# ----------------------------------------
 # Operating System Files
+# ----------------------------------------
 .DS_Store            # macOS
 Thumbs.db            # Windows
+Desktop.ini
 
+# ----------------------------------------
 # Generated Files / Data
-data/model/*.h5      # Trained Keras/TensorFlow models
+# ----------------------------------------
+# Database files
+data/users.db        # SQLite database file (will be created on Render's ephemeral filesystem)
+
+# Trained ML models and scalers
+data/model/*.h5      # Your trained Keras/TensorFlow model
 data/model/*.keras   # New Keras save format
 data/model/*.pkl     # Saved scikit-learn scalers, etc.
-data/ticker_cache/   # Cached historical data
-data/users.db        # SQLite database file
 
-# Pytest / Testing artifacts
+# Cached data from APIs
+data/ticker_cache/   # Cached historical data from yfinance
+
+# Testing artifacts
 .pytest_cache/
 htmlcov/             # Coverage reports
 .coverage
+
+# Streamlit-specific cache
+.streamlit/
