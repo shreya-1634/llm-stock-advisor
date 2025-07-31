@@ -17,6 +17,7 @@ from core.trading_engine import TradingEngine
 from utils.session_utils import SessionManager
 from db.user_manager import UserManager
 from utils.formatting import Formatting
+from utils.currency_converter import CurrencyConverter # <--- ADDED
 
 # Suppress TensorFlow Logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -30,6 +31,7 @@ predictor = Predictor()
 trading_engine = TradingEngine()
 session_manager = SessionManager()
 user_db = UserManager()
+currency_converter = CurrencyConverter() # <--- ADDED
 
 def load_css(file_name="styles.css"):
     css_path = os.path.join("static", file_name)
@@ -85,7 +87,7 @@ def main_app_ui():
     st.title(app_name)
     st.markdown("---")
 
-    col_ticker, col_period = st.columns([0.7, 0.3])
+    col_ticker, col_period, col_currency = st.columns([0.5, 0.25, 0.25]) # ADDED a column for currency
     with col_ticker:
         ticker_symbol = st.text_input("Enter Stock Ticker Symbol (e.g., AAPL, MSFT):", "AAPL", key="ticker_input").upper().strip()
     with col_period:
@@ -95,6 +97,18 @@ def main_app_ui():
         }
         selected_period_label = st.selectbox("Select Period", list(period_options.keys()), index=5, key="period_selector")
         historical_period = period_options[selected_period_label]
+    with col_currency:
+        # Get list of supported currencies from the converter class
+        supported_currencies = currency_converter.supported_currencies
+        # Default to USD if available, otherwise use the first currency in the list
+        default_currency_index = supported_currencies.index("USD") if "USD" in supported_currencies else 0
+        selected_currency = st.selectbox(
+            "Display in Currency",
+            supported_currencies,
+            index=default_currency_index,
+            key="currency_selector"
+        )
+
 
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
@@ -110,16 +124,28 @@ def main_app_ui():
                 user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_failed", f"Ticker: {ticker_symbol}, Period: {historical_period}")
                 return
             user_db._log_activity(session_manager.get_current_user_email(), "data_fetch_success", f"Ticker: {ticker_symbol}, Period: {historical_period}")
+        
+        # Get the conversion rate
+        conversion_rate = currency_converter.convert(1, selected_currency)
+        currency_symbol = selected_currency if selected_currency != "USD" else "$" # Use '$' for USD
 
+        # Display current open/close prices
         st.write("### Current Price Information")
-        current_open = df['Open'].iloc[-1]
-        current_close = df['Close'].iloc[-1]
+        if conversion_rate is not None:
+            current_open = df['Open'].iloc[-1] * conversion_rate
+            current_close = df['Close'].iloc[-1] * conversion_rate
+        else:
+            current_open = df['Open'].iloc[-1]
+            current_close = df['Close'].iloc[-1]
+            st.warning("Could not fetch exchange rates. Displaying prices in USD.")
+            currency_symbol = "$"
+
         col_open, col_close = st.columns(2)
         with col_open:
-            st.metric(label="Current Open Price", value=Formatting.format_currency(current_open))
+            st.metric(label=f"Current Open Price ({currency_symbol})", value=Formatting.format_currency(current_open, currency_symbol=currency_symbol))
         with col_close:
-            st.metric(label="Current Close Price", value=Formatting.format_currency(current_close))
-        
+            st.metric(label=f"Current Close Price ({currency_symbol})", value=Formatting.format_currency(current_close, currency_symbol=currency_symbol))
+
         with st.spinner("Calculating technical indicators..."):
             df['RSI'] = data_fetcher.calculate_rsi(df)
             macd_df = data_fetcher.calculate_macd(df)
@@ -130,12 +156,24 @@ def main_app_ui():
             col_chart_static, col_chart_interactive = st.columns(2)
             with col_chart_static:
                 st.write("#### Static Candlestick Chart (mplfinance)")
-                fig_mpl = visualization.plot_candlestick(df, ticker_symbol)
+                # Convert the entire DataFrame's prices for charts
+                df_converted = df.copy()
+                if conversion_rate is not None:
+                    df_converted['Open'] *= conversion_rate
+                    df_converted['High'] *= conversion_rate
+                    df_converted['Low'] *= conversion_rate
+                    df_converted['Close'] *= conversion_rate
+                fig_mpl = visualization.plot_candlestick(df_converted, f"{ticker_symbol} ({currency_symbol})")
                 st.pyplot(fig_mpl)
             with col_chart_interactive:
                 if session_manager.has_permission("view_charts_advanced"):
                     st.write("#### Interactive Candlestick Chart (Plotly)")
-                    fig_plotly = visualization.plot_interactive_candlestick_plotly(df, ticker_symbol)
+                    if conversion_rate is not None:
+                        df_converted['Open'] *= conversion_rate
+                        df_converted['High'] *= conversion_rate
+                        df_converted['Low'] *= conversion_rate
+                        df_converted['Close'] *= conversion_rate
+                    fig_plotly = visualization.plot_interactive_candlestick_plotly(df_converted, f"{ticker_symbol} ({currency_symbol})")
                     st.plotly_chart(fig_plotly, use_container_width=True)
                 else:
                     st.info("Upgrade to a Premium plan for interactive charts with indicators.")
@@ -167,6 +205,7 @@ def main_app_ui():
         else:
             st.info("Login or upgrade your plan to view live news.")
         
+        # --- Future Prediction and Recommendations (UPDATED) ---
         st.markdown("### Future Price Prediction")
         predicted_prices_df = pd.DataFrame()
         if session_manager.has_permission("get_predictions"):
@@ -175,8 +214,11 @@ def main_app_ui():
                 if predictor.model:
                     predicted_prices_df = predictor.predict_prices(df)
                     if not predicted_prices_df.empty:
-                        st.write("Predicted Open and Close prices for the next few trading days:")
-                        st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"${x:.2f}"), use_container_width=True)
+                        st.write(f"Predicted Open and Close prices for the next few trading days in {selected_currency}:")
+                        if conversion_rate is not None:
+                            predicted_prices_df['Predicted Open'] *= conversion_rate
+                            predicted_prices_df['Predicted Close'] *= conversion_rate
+                        st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"{currency_symbol}{x:.2f}"), use_container_width=True)
                         st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_df['Predicted Close']), use_container_width=True)
                         user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
                     else:
