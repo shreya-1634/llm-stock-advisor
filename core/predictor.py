@@ -8,14 +8,14 @@ from typing import Optional
 class Predictor:
     def __init__(self):
         # We will not load a model, we'll return a placeholder prediction
-        self.model_available = False
+        self.model = None # <--- RE-ADDED THIS LINE
         self.scaler = MinMaxScaler(feature_range=(0, 1))
 
     def load_model(self):
         """Placeholder for model loading. We assume no model is available."""
         # For direct editing on GitHub, we don't have the trained model files.
-        # So we set the model_available flag to False.
-        self.model_available = False
+        # So we set the model to None and the model_available flag to False.
+        self.model = None
         print("WARNING: Model loading skipped. Prediction feature will use placeholder data.")
 
     def preprocess_data_for_prediction(self, df: pd.DataFrame) -> Optional[np.ndarray]:
@@ -32,7 +32,7 @@ class Predictor:
         This function replaces the ML model's prediction logic for this deployment.
         The prediction is a simple random walk based on recent data.
         """
-        if not self.model_available:
+        if self.model is None:
             if df.empty or len(df) < num_predictions:
                 return pd.DataFrame()
             
