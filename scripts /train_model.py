@@ -62,3 +62,41 @@ def train_lstm_model(ticker_symbol: str = "AAPL", period: str = "5y",
 
     # 5. Build LSTM Model
     model = Sequential([
+        LSTM(units=50, return_sequences=True, input_shape=(look_back, 2)), # Input shape for 2 features
+        Dropout(0.2),
+        LSTM(units=50, return_sequences=False),
+        Dropout(0.2),
+        Dense(units=2) # Output layer for 2 values (Open, Close)
+    ])
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.summary()
+
+    # Callbacks
+    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+    model_checkpoint = ModelCheckpoint(
+        filepath=os.path.join(model_dir, "lstm_model.h5"),
+        monitor='val_loss',
+        save_best_only=True,
+        verbose=1
+    )
+
+    # 6. Train Model
+    model.fit(
+        X_train, y_train,
+        epochs=100,
+        batch_size=32,
+        validation_data=(X_test, y_test),
+        callbacks=[early_stopping, model_checkpoint],
+        verbose=1
+    )
+
+    print("Model training complete.")
+    train_loss = model.evaluate(X_train, y_train, verbose=0)
+    test_loss = model.evaluate(X_test, y_test, verbose=0)
+    print(f"Train Loss: {train_loss:.4f}")
+    print(f"Test Loss: {test_loss:.4f}")
+    print(f"Trained model saved to {os.path.join(model_dir, 'lstm_model.h5')}")
+
+if __name__ == "__main__":
+    train_lstm_model(ticker_symbol="AAPL", period="5y", look_back=60)
