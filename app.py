@@ -19,14 +19,10 @@ from db.user_manager import UserManager
 from utils.formatting import Formatting
 from utils.currency_converter import CurrencyConverter
 
-# --- Suppress TensorFlow Logging (as previously discussed) ---
-# This prevents informational messages and warnings from being printed to the console.
-# We comment it out for now to ensure we can still see important startup messages,
-# but it's a good practice for a clean production log.
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# Suppress TensorFlow Logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# --- Initialize Managers (at the top level) ---
-# These instances will be used throughout the application to perform specific tasks.
+# Initialize Managers
 auth_manager = AuthManager()
 data_fetcher = DataFetcher()
 visualization = Visualization()
@@ -81,7 +77,6 @@ def auth_sidebar_ui():
         st.rerun()
 
 def main_app_ui():
-    # --- Corrected: Initialize currency_converter inside this function ---
     currency_converter = CurrencyConverter()
 
     st.sidebar.title(f"Welcome, {session_manager.get_current_user_email()}!")
@@ -112,6 +107,7 @@ def main_app_ui():
             index=default_currency_index,
             key="currency_selector"
         )
+
 
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
