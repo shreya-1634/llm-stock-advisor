@@ -108,7 +108,6 @@ def main_app_ui():
             key="currency_selector"
         )
 
-
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
             st.warning("Please enter a ticker symbol.")
@@ -131,9 +130,12 @@ def main_app_ui():
         if conversion_rate is not None:
             current_open = df['Open'].iloc[-1] * conversion_rate
             current_close = df['Close'].iloc[-1] * conversion_rate
+            df_converted = df.copy()
+            df_converted[['Open', 'High', 'Low', 'Close']] *= conversion_rate
         else:
             current_open = df['Open'].iloc[-1]
             current_close = df['Close'].iloc[-1]
+            df_converted = df.copy()
             st.warning("Could not fetch exchange rates. Displaying prices in USD.")
             currency_symbol = "$"
 
@@ -153,23 +155,13 @@ def main_app_ui():
             col_chart_static, col_chart_interactive = st.columns(2)
             with col_chart_static:
                 st.write("#### Static Candlestick Chart (mplfinance)")
-                df_converted = df.copy()
-                if conversion_rate is not None:
-                    df_converted['Open'] *= conversion_rate
-                    df_converted['High'] *= conversion_rate
-                    df_converted['Low'] *= conversion_rate
-                    df_converted['Close'] *= conversion_rate
+                # Pass the converted DataFrame to the chart function
                 fig_mpl = visualization.plot_candlestick(df_converted, f"{ticker_symbol} ({currency_symbol})")
                 st.pyplot(fig_mpl)
             with col_chart_interactive:
                 if session_manager.has_permission("view_charts_advanced"):
                     st.write("#### Interactive Candlestick Chart (Plotly)")
-                    df_converted = df.copy()
-                    if conversion_rate is not None:
-                        df_converted['Open'] *= conversion_rate
-                        df_converted['High'] *= conversion_rate
-                        df_converted['Low'] *= conversion_rate
-                        df_converted['Close'] *= conversion_rate
+                    # Pass the converted DataFrame to the chart function
                     fig_plotly = visualization.plot_interactive_candlestick_plotly(df_converted, f"{ticker_symbol} ({currency_symbol})")
                     st.plotly_chart(fig_plotly, use_container_width=True)
                 else:
