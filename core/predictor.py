@@ -84,7 +84,7 @@ class Predictor:
         Predicts future stock Open and Close prices for `num_predictions` days.
         Returns a Pandas DataFrame of predicted prices.
         """
-        if self.model: # If model is loaded, use it for prediction
+        if self.model: # <-- THIS CHECK NOW SUCCEEDS
             x_input = self.preprocess_data_for_prediction(df)
             if x_input is None or x_input.size == 0:
                 return pd.DataFrame()
