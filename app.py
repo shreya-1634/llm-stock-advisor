@@ -108,6 +108,7 @@ def main_app_ui():
             key="currency_selector"
         )
 
+
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
             st.warning("Please enter a ticker symbol.")
@@ -127,23 +128,20 @@ def main_app_ui():
         currency_symbol = selected_currency if selected_currency != "USD" else "$"
 
         st.write("### Current Price Information")
+        current_open = df['Open'].iloc[-1]
+        current_close = df['Close'].iloc[-1]
+        df_converted = df.copy()
         if conversion_rate is not None:
-            current_open = df['Open'].iloc[-1] * conversion_rate
-            current_close = df['Close'].iloc[-1] * conversion_rate
-            df_converted = df.copy()
             df_converted[['Open', 'High', 'Low', 'Close']] *= conversion_rate
         else:
-            current_open = df['Open'].iloc[-1]
-            current_close = df['Close'].iloc[-1]
-            df_converted = df.copy()
             st.warning("Could not fetch exchange rates. Displaying prices in USD.")
             currency_symbol = "$"
 
         col_open, col_close = st.columns(2)
         with col_open:
-            st.metric(label=f"Current Open Price ({currency_symbol})", value=Formatting.format_currency(current_open, currency_symbol=currency_symbol))
+            st.metric(label=f"Current Open Price ({currency_symbol})", value=Formatting.format_currency(df_converted['Open'].iloc[-1], currency_symbol=currency_symbol))
         with col_close:
-            st.metric(label=f"Current Close Price ({currency_symbol})", value=Formatting.format_currency(current_close, currency_symbol=currency_symbol))
+            st.metric(label=f"Current Close Price ({currency_symbol})", value=Formatting.format_currency(df_converted['Close'].iloc[-1], currency_symbol=currency_symbol))
 
         with st.spinner("Calculating technical indicators..."):
             df['RSI'] = data_fetcher.calculate_rsi(df)
@@ -155,13 +153,11 @@ def main_app_ui():
             col_chart_static, col_chart_interactive = st.columns(2)
             with col_chart_static:
                 st.write("#### Static Candlestick Chart (mplfinance)")
-                # Pass the converted DataFrame to the chart function
                 fig_mpl = visualization.plot_candlestick(df_converted, f"{ticker_symbol} ({currency_symbol})")
                 st.pyplot(fig_mpl)
             with col_chart_interactive:
                 if session_manager.has_permission("view_charts_advanced"):
                     st.write("#### Interactive Candlestick Chart (Plotly)")
-                    # Pass the converted DataFrame to the chart function
                     fig_plotly = visualization.plot_interactive_candlestick_plotly(df_converted, f"{ticker_symbol} ({currency_symbol})")
                     st.plotly_chart(fig_plotly, use_container_width=True)
                 else:
