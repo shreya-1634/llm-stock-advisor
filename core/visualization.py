@@ -1,17 +1,13 @@
-# your_project/core/visualization.py
+# your_project/core/visualization.py (CORRECTED)
 
 import mplfinance as mpf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-import matplotlib.pyplot as plt # For mplfinance to return a figure
+import matplotlib.pyplot as plt
 
 class Visualization:
     def plot_candlestick(self, df: pd.DataFrame, ticker: str):
-        """
-        Generates a static candlestick chart with optional RSI and MACD panels using mplfinance.
-        Returns a matplotlib figure.
-        """
         if df.empty or 'Open' not in df.columns or 'High' not in df.columns or \
            'Low' not in df.columns or 'Close' not in df.columns:
             fig, ax = plt.subplots(figsize=(10, 6))
@@ -20,18 +16,13 @@ class Visualization:
             plt.close(fig)
             return fig
 
-        # --- FIX: Make the index timezone-naive before plotting ---
-        # This handles the yfinance tz-aware index incompatibility with mplfinance.
-        # Convert to UTC and then remove timezone information
+        # --- FIX: Ensure the index is a DatetimeIndex before accessing .tz ---
+        df.index = pd.to_datetime(df.index)
         if df.index.tz is not None:
-            df = df.copy() # Make a copy to avoid SettingWithCopyWarning
             df.index = df.index.tz_convert('UTC').tz_localize(None)
-
 
         df_mpf = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
         df_mpf.index.name = 'Date'
-        # The line below is now redundant and can be removed
-        # df_mpf.index = pd.to_datetime(df_mpf.index)
 
         apds = []
         if 'RSI' in df.columns and not df['RSI'].isnull().all():
@@ -56,27 +47,22 @@ class Visualization:
         return fig
 
     def plot_interactive_candlestick_plotly(self, df: pd.DataFrame, ticker: str) -> go.Figure:
-        """
-        Generates an interactive candlestick chart using Plotly, with RSI and MACD subplots.
-        """
+        # The same fix should be applied to the Plotly chart function for consistency
         if df.empty or 'Open' not in df.columns or 'High' not in df.columns or \
            'Low' not in df.columns or 'Close' not in df.columns:
-            print("No data to plot interactive candlestick.")
-            return go.Figure()
+            return go.Figure().add_annotation(text="No data for interactive candlestick.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
 
-        # Create subplots: 3 rows for Price, RSI, MACD
+        # --- FIX: Ensure the index is a DatetimeIndex and is timezone-naive ---
+        df.index = pd.to_datetime(df.index)
+        if df.index.tz is not None:
+            df.index = df.index.tz_convert('UTC').tz_localize(None)
+
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
                             vertical_spacing=0.05, 
                             row_heights=[0.6, 0.2, 0.2])
 
-        # Candlestick chart
-        fig.add_trace(go.Candlestick(x=df.index,
-                                     open=df['Open'],
-                                     high=df['High'],
-                                     low=df['Low'],
-                                     close=df['Close'],
-                                     name='Candlesticks'), row=1, col=1)
-
+        fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Candlesticks'), row=1, col=1)
+        
         # RSI plot
         if 'RSI' in df.columns and not df['RSI'].isnull().all():
             fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', 
