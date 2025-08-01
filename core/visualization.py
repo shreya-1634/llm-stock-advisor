@@ -16,6 +16,7 @@ class Visualization:
             plt.close(fig)
             return fig
 
+        # --- FIX: Ensure the index is a DatetimeIndex and is timezone-naive ---
         df.index = pd.to_datetime(df.index)
         if df.index.tz is not None:
             df.index = df.index.tz_convert('UTC').tz_localize(None)
@@ -50,6 +51,7 @@ class Visualization:
            'Low' not in df.columns or 'Close' not in df.columns:
             return go.Figure().add_annotation(text="No data for interactive candlestick.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5)
 
+        # --- FIX: Ensure the index is a DatetimeIndex and is timezone-naive ---
         df.index = pd.to_datetime(df.index)
         if df.index.tz is not None:
             df.index = df.index.tz_convert('UTC').tz_localize(None)
