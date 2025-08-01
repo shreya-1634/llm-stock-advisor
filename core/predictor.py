@@ -120,10 +120,12 @@ class Predictor:
             predicted_data = []
             
             for i in range(1, num_predictions + 1):
-                last_open += open_change
-                last_close += close_change
-                predicted_data.append([last_open, last_close])
-            
+                open_price = last_open + open_change
+                close_price = last_close + close_change
+                predicted_data.append([open_price, close_price])
+                last_open = open_price
+                last_close = close_price
+
             future_dates = pd.date_range(start=df.index[-1], periods=num_predictions + 1, freq='B')[1:]
             
             predicted_df = pd.DataFrame(predicted_data, index=future_dates, columns=['Predicted Open', 'Predicted Close'])
