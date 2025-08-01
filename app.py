@@ -17,11 +17,16 @@ from core.trading_engine import TradingEngine
 from utils.session_utils import SessionManager
 from db.user_manager import UserManager
 from utils.formatting import Formatting
+from utils.currency_converter import CurrencyConverter
 
-# Suppress TensorFlow Logging
+# --- Suppress TensorFlow Logging (as previously discussed) ---
+# This prevents informational messages and warnings from being printed to the console.
+# We comment it out for now to ensure we can still see important startup messages,
+# but it's a good practice for a clean production log.
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# Initialize Managers
+# --- Initialize Managers (at the top level) ---
+# These instances will be used throughout the application to perform specific tasks.
 auth_manager = AuthManager()
 data_fetcher = DataFetcher()
 visualization = Visualization()
@@ -76,6 +81,9 @@ def auth_sidebar_ui():
         st.rerun()
 
 def main_app_ui():
+    # --- Corrected: Initialize currency_converter inside this function ---
+    currency_converter = CurrencyConverter()
+
     st.sidebar.title(f"Welcome, {session_manager.get_current_user_email()}!")
     st.sidebar.write(f"Role: **{session_manager.get_current_user_role().capitalize()}**")
     if st.sidebar.button("Logout", key="sidebar_logout_button"):
@@ -85,7 +93,7 @@ def main_app_ui():
     st.title(app_name)
     st.markdown("---")
 
-    col_ticker, col_period, col_currency = st.columns([0.5, 0.25, 0.25]) # ADDED a column for currency
+    col_ticker, col_period, col_currency = st.columns([0.5, 0.25, 0.25])
     with col_ticker:
         ticker_symbol = st.text_input("Enter Stock Ticker Symbol (e.g., AAPL, MSFT):", "AAPL", key="ticker_input").upper().strip()
     with col_period:
@@ -105,7 +113,6 @@ def main_app_ui():
             key="currency_selector"
         )
 
-
     if st.button("Analyze Stock", use_container_width=True, key="analyze_button"):
         if not ticker_symbol:
             st.warning("Please enter a ticker symbol.")
@@ -123,7 +130,7 @@ def main_app_ui():
         
         conversion_rate = currency_converter.convert(1, selected_currency)
         currency_symbol = selected_currency if selected_currency != "USD" else "$"
-        
+
         st.write("### Current Price Information")
         if conversion_rate is not None:
             current_open = df['Open'].iloc[-1] * conversion_rate
@@ -203,20 +210,22 @@ def main_app_ui():
         predicted_prices_df = pd.DataFrame()
         if session_manager.has_permission("get_predictions"):
             with st.spinner("Predicting future prices..."):
-                # We skip model loading since we're using a placeholder
-                # We still call the method to get the placeholder data
-                predicted_prices_df = predictor.predict_prices(df)
-                if not predicted_prices_df.empty:
-                    st.write(f"Predicted Open and Close prices for the next few trading days in {selected_currency}:")
-                    if conversion_rate is not None:
-                        predicted_prices_df['Predicted Open'] *= conversion_rate
-                        predicted_prices_df['Predicted Close'] *= conversion_rate
-                    st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"{currency_symbol}{x:.2f}"), use_container_width=True)
-                    st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_df['Predicted Close']), use_container_width=True)
-                    user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
+                predictor.load_model()
+                if predictor.model:
+                    predicted_prices_df = predictor.predict_prices(df)
+                    if not predicted_prices_df.empty:
+                        st.write(f"Predicted Open and Close prices for the next few trading days in {selected_currency}:")
+                        if conversion_rate is not None:
+                            predicted_prices_df['Predicted Open'] *= conversion_rate
+                            predicted_prices_df['Predicted Close'] *= conversion_rate
+                        st.dataframe(predicted_prices_df.style.format(formatter=lambda x: f"{currency_symbol}{x:.2f}"), use_container_width=True)
+                        st.plotly_chart(visualization.plot_prediction_chart(df, predicted_prices_df['Predicted Close']), use_container_width=True)
+                        user_db._log_activity(session_manager.get_current_user_email(), "prediction_success", f"Ticker: {ticker_symbol}")
+                    else:
+                        st.warning("Could not generate price prediction. Ensure model is trained and data is sufficient.")
+                        user_db._log_activity(session_manager.get_current_user_email(), "prediction_failed", f"Ticker: {ticker_symbol} - No prediction data.")
                 else:
-                    st.warning("Could not generate price prediction. Not enough data.")
-                    user_db._log_activity(session_manager.get_current_user_email(), "prediction_failed", f"Ticker: {ticker_symbol} - No prediction data.")
+                    st.warning("Prediction model not available. Please ensure it is trained and loaded correctly.")
         else:
             st.info("Upgrade to a Premium plan to access AI-powered price predictions.")
 
