@@ -14,39 +14,45 @@ class Visualization:
         """
         if df.empty or 'Open' not in df.columns or 'High' not in df.columns or \
            'Low' not in df.columns or 'Close' not in df.columns:
-            print("Not enough data to plot static candlestick.")
-            fig, ax = plt.subplots() # Return an empty figure
-            ax.text(0.5, 0.5, "No data to plot", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.text(0.5, 0.5, "No data to plot candlestick.", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+            ax.set_title(f"{ticker} Candlestick Chart (No Data)")
+            plt.close(fig)
             return fig
 
-        # Ensure correct column names for mplfinance and index is datetime
+        # --- FIX: Make the index timezone-naive before plotting ---
+        # This handles the yfinance tz-aware index incompatibility with mplfinance.
+        # Convert to UTC and then remove timezone information
+        if df.index.tz is not None:
+            df = df.copy() # Make a copy to avoid SettingWithCopyWarning
+            df.index = df.index.tz_convert('UTC').tz_localize(None)
+
+
         df_mpf = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
         df_mpf.index.name = 'Date'
-        df_mpf.index = pd.to_datetime(df_mpf.index) # Ensure datetime index
+        # The line below is now redundant and can be removed
+        # df_mpf.index = pd.to_datetime(df_mpf.index)
 
-        apds = [] # Additional plots for indicators
-        
-        # Add RSI panel if available
+        apds = []
         if 'RSI' in df.columns and not df['RSI'].isnull().all():
             apds.append(mpf.make_addplot(df['RSI'], panel=1, color='blue', ylabel='RSI'))
-        
-        # Add MACD panel if available
+
         if 'MACD' in df.columns and 'MACD_Signal' in df.columns and 'MACD_Diff' in df.columns \
            and not df['MACD'].isnull().all():
             apds.append(mpf.make_addplot(df['MACD'], panel=2, color='green', ylabel='MACD'))
             apds.append(mpf.make_addplot(df['MACD_Signal'], panel=2, color='red'))
             apds.append(mpf.make_addplot(df['MACD_Diff'], panel=2, type='bar', color='gray'))
 
-        # Create the plot and return the figure
         fig, axlist = mpf.plot(df_mpf, 
-                          type='candle', 
-                          style='yahoo', # Or 'charles', 'binance', etc.
-                          title=f"{ticker} Candlestick Chart", 
-                          ylabel='Price', 
-                          volume=True, 
-                          addplot=apds,
-                          returnfig=True, # Important to return the figure for Streamlit
-                          figscale=1.5) # Scale figure for better visibility in Streamlit
+                              type='candle', 
+                              style='yahoo', 
+                              title=f"{ticker} Candlestick Chart", 
+                              ylabel=f"Price", 
+                              volume=True, 
+                              addplot=apds,
+                              returnfig=True, 
+                              figscale=1.5)
+        plt.close(fig)
         return fig
 
     def plot_interactive_candlestick_plotly(self, df: pd.DataFrame, ticker: str) -> go.Figure:
