@@ -128,8 +128,6 @@ def main_app_ui():
         currency_symbol = selected_currency if selected_currency != "USD" else "$"
 
         st.write("### Current Price Information")
-        current_open = df['Open'].iloc[-1]
-        current_close = df['Close'].iloc[-1]
         df_converted = df.copy()
         if conversion_rate is not None:
             df_converted[['Open', 'High', 'Low', 'Close']] *= conversion_rate
