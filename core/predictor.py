@@ -30,28 +30,26 @@ class Predictor:
         """
         Generates a placeholder prediction for Open and Close prices.
         This function replaces the ML model's prediction logic for this deployment.
-        The prediction is a simple linear extrapolation based on recent data.
+        The prediction is a simple random walk based on recent data.
         """
         if not self.model_available:
             if df.empty or len(df) < num_predictions:
                 return pd.DataFrame()
-            
-            # Simple linear extrapolation for demonstration
+
             last_open = df['Open'].iloc[-1]
             last_close = df['Close'].iloc[-1]
             
-            # Use average daily change from the last 5 days
-            recent_changes = df[['Open', 'Close']].diff().dropna().tail(5).mean()
-            open_change = recent_changes['Open']
-            close_change = recent_changes['Close']
-            
+            # Simple random walk prediction for demonstration
+            # The predictions will be based on a small random change from the last price
             predicted_data = []
             
             for i in range(1, num_predictions + 1):
-                last_open += open_change
-                last_close += close_change
-                predicted_data.append([last_open, last_close])
-            
+                open_price = last_open + np.random.uniform(-0.5, 0.5)
+                close_price = last_close + np.random.uniform(-0.5, 0.5)
+                predicted_data.append([open_price, close_price])
+                last_open = open_price
+                last_close = close_price
+
             future_dates = pd.date_range(start=df.index[-1], periods=num_predictions + 1, freq='B')[1:]
             
             predicted_df = pd.DataFrame(predicted_data, index=future_dates, columns=['Predicted Open', 'Predicted Close'])
