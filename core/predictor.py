@@ -35,13 +35,13 @@ class Predictor:
         if not self.model_available:
             if df.empty or len(df) < num_predictions:
                 return pd.DataFrame()
-
-            last_open = df['Open'].iloc[-1]
-            last_close = df['Close'].iloc[-1]
             
             # Simple random walk prediction for demonstration
             # The predictions will be based on a small random change from the last price
             predicted_data = []
+            
+            last_open = df['Open'].iloc[-1]
+            last_close = df['Close'].iloc[-1]
             
             for i in range(1, num_predictions + 1):
                 open_price = last_open + np.random.uniform(-0.5, 0.5)
