@@ -10,7 +10,7 @@ import joblib
 
 class Predictor:
     def __init__(self):
-        self.model_path = "data/model/generator_model.h5"
+        self.model_path = "data/model/generator_model.h5" # <-- CORRECT PATH FOR GAN
         self.scaler_path = "data/model/scaler.pkl"
         self.model = None
         self.scaler = None
@@ -83,13 +83,10 @@ class Predictor:
         Predicts future Open and Close prices using the trained Generator model.
         """
         if self.model:
-            x_input = self.preprocess_data_for_prediction(df)
-            if x_input is None or x_input.size == 0:
-                return pd.DataFrame()
-
-            # The GAN generator needs a noise vector as input to generate new data
+            # We will use a noise vector as input for the GAN to generate new data
             noise = np.random.normal(0, 1, size=[1, self.look_back, 2])
-
+            
+            # Predict the scaled prices using the generator model
             predicted_scaled_prices = self.model.predict(noise, verbose=0)
             
             # The GAN predicts the next day's price. We will repeat this to get multiple predictions.
