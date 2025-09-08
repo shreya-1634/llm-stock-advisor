@@ -2,7 +2,7 @@
 
 class Permissions:
     ROLES = {
-        "guest": [], 
+        "guest": [],
         "free": [
             "view_charts_basic",
             "view_charts_advanced",
