@@ -2,10 +2,11 @@
 
 import streamlit as st
 import time
-from db.user_manager import UserManager # <-- IMPORT FIXED
+from db.user_manager import UserManager
 from utils.password_utils import PasswordUtils
 from utils.email_utils import EmailUtils
-from utils.session_utils import SessionManager # <-- IMPORT FIXED
+from utils.session_utils import SessionManager
+from typing import Optional, Dict, Any, Tuple
 
 class AuthManager:
     def __init__(self):
@@ -49,12 +50,12 @@ class AuthManager:
                     else:
                         st.error("Registration failed. Please try again.")
         
-        # Display OTP verification section after signup
         if 'signup_email_for_verification' in st.session_state and st.session_state['signup_email_for_verification']:
             self.verify_email_ui(st.session_state['signup_email_for_verification'])
 
 
     def verify_email_ui(self, email_for_verification: str):
+        """Renders the OTP verification form."""
         st.subheader(f"Verify Email for {email_for_verification}")
         user_data = self.user_manager.get_user_by_email(email_for_verification)
 
@@ -80,7 +81,7 @@ class AuthManager:
                         del st.session_state['signup_email_for_verification']
                 else:
                     st.error("Invalid OTP or OTP expired. Please try again or resend.")
-
+            
             if resend_otp_button:
                 otp = self.email_utils.generate_otp()
                 if self.user_manager.store_otp(email_for_verification, otp):
@@ -91,7 +92,9 @@ class AuthManager:
                 else:
                     st.error("Failed to generate/store new OTP.")
 
+
     def login_ui(self):
+        """Renders the user login form and handles authentication."""
         st.subheader("Login to Your Account")
         with st.form("login_form"):
             email = st.text_input("Email", key="login_email_input").strip()
@@ -110,7 +113,7 @@ class AuthManager:
                             self.session_manager.login_user(user_data['email'], user_data['role'])
                             self.user_manager._log_activity(email, "login", "Successful login.")
                             st.success("Logged in successfully!")
-                            st.rerun() # <--- FIXED
+                            st.rerun()
                         else:
                             st.warning("Please verify your email first to log in.")
                             st.session_state['signup_email_for_verification'] = email
@@ -122,6 +125,7 @@ class AuthManager:
                     self.user_manager._log_activity(email, "login_failed", "Email not found.")
 
     def reset_password_ui(self):
+        """Renders the password reset request and reset forms."""
         st.subheader("Reset Your Password")
         if 'reset_email_sent' not in st.session_state:
             st.session_state['reset_email_sent'] = False
